@@ -9,22 +9,10 @@ export class BalancesData {
   stamp: number
 
   @Prop({ type: String })
-  relayRegistryOperator: string
+  kind: string
 
   @Prop({ type: String })
-  relayRegistryUploader: string
-
-  @Prop({ type: String })
-  distributionOperator: string
-
-  @Prop({ type: String })
-  facilityOperator: string
-
-  @Prop({ type: String })
-  facilityTokens: string
-
-  @Prop({ type: String })
-  registratorTokens: string
+  amount: string
 }
 
 export const BalancesDataSchema = SchemaFactory.createForClass(BalancesData)

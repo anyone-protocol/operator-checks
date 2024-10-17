@@ -12,6 +12,9 @@ job "operator-checks-live" {
         to = 3000
         host_network = "wireguard"
       }
+      port "redis" {
+        host_network = "wireguard"
+      }
     }
 
     task "operator-checks-live-service" {
@@ -21,7 +24,7 @@ job "operator-checks-live" {
       }
 
       vault {
-        policies = ["valid-ator-live"]
+        policies = ["valid-ator-live", "operator-checks-live"]
       }
 
       template {
@@ -31,27 +34,24 @@ job "operator-checks-live" {
           DISTRIBUTION_OPERATOR_KEY="{{.Data.data.DISTRIBUTION_OPERATOR_KEY}}"
           FACILITY_OPERATOR_KEY="{{.Data.data.FACILITY_OPERATOR_KEY}}"
           REGISTRATOR_OPERATOR_KEY="{{.Data.data.REGISTRATOR_OPERATOR_KEY}}"
-          IRYS_NETWORK="{{.Data.data.IRYS_NETWORK}}"
           JSON_RPC="{{.Data.data.JSON_RPC}}"
-          DRE_HOSTNAME="{{.Data.data.DRE_HOSTNAME}}"
           INFURA_NETWORK="{{.Data.data.INFURA_NETWORK}}"
           INFURA_WS_URL="{{.Data.data.INFURA_WS_URL}}"
-          MAINNET_WS_URL="{{.Data.data.MAINNET_WS_URL}}"
-          MAINNET_JSON_RPC="{{.Data.data.MAINNET_JSON_RPC}}"
+          BUNDLER_NETWORK="{{.Data.data.IRYS_NETWORK}}"
+          BUNDLER_NODE="https://node2.irys.xyz"
+        {{end}}
+        {{with secret "kv/operator-checks/live"}}
+          ETH_SPENDER_KEY="{{.Data.data.ETH_SPENDER_KEY}}"
+          AR_SPENDER_KEY="{{.Data.data.AR_SPENDER_KEY}}"
         {{end}}
         RELAY_REGISTRY_CONTRACT_TXID="[[ consulKey "smart-contracts/live/relay-registry-address" ]]"
         DISTRIBUTION_CONTRACT_TXID="[[ consulKey "smart-contracts/live/distribution-address" ]]"
         FACILITY_CONTRACT_ADDRESS="[[ consulKey "facilitator/sepolia/live/address" ]]"
         REGISTRATOR_CONTRACT_ADDRESS="[[ consulKey "registrator/sepolia/live/address" ]]"
         TOKEN_CONTRACT_ADDRESS="[[ consulKey "ator-token/sepolia/live/address" ]]"
-        RELAY_UP_NFT_CONTRACT_ADDRESS="[[ consulKey "relay-up-nft-contract/live/address" ]]"
-        {{- range service "validator-live-mongo" }}
-          MONGO_URI="mongodb://{{ .Address }}:{{ .Port }}/operator-checks-live-testnet"
-        {{- end }}
-        {{- range service "validator-live-redis" }}
-          REDIS_HOSTNAME="{{ .Address }}"
-          REDIS_PORT="{{ .Port }}"
-        {{- end }}
+        
+        REDIS_HOSTNAME="localhost"
+        REDIS_PORT="${NOMAD_PORT_redis}"
         EOH
         destination = "secrets/file.env"
         env         = true
@@ -60,15 +60,18 @@ job "operator-checks-live" {
       env {
         IS_LIVE="true"
         VERSION="[[.commit_sha]]"
-        IRYS_NODE="https://node2.irys.xyz"
-        RELAY_REGISTRY_OPERATOR_MIN_BALANCE=0
-        RELAY_REGISTRY_UPLOADER_MIN_BALANCE=1000000
-        DISTRIBUTION_OPERATOR_MIN_BALANCE=0
-        FACILITY_OPERATOR_MIN_BALANCE=1000000
-        FACILITY_TOKEN_MIN_BALANCE=1000000
-        DRE_REQUEST_TIMEOUT=60000
-        DRE_REQUEST_MAX_REDIRECTS=3
-        DO_CLEAN="false"
+        RELAY_REGISTRY_OPERATOR_MIN_BALANCE=1000000
+        RELAY_REGISTRY_OPERATOR_MAX_BALANCE=100000000
+        RELAY_REGISTRY_UPLOADER_MIN_BALANCE=2000000
+        RELAY_REGISTRY_UPLOADER_MAX_BALANCE=200000000
+        DISTRIBUTION_OPERATOR_MIN_BALANCE=3000000
+        DISTRIBUTION_OPERATOR_MAX_BALANCE=300000000
+        DISTRIBUTION_UPLOADER_MIN_BALANCE=3000000
+        DISTRIBUTION_UPLOADER_MAX_BALANCE=3000000
+        FACILITY_OPERATOR_MIN_ETH=1
+        FACILITY_OPERATOR_MAX_ETH=5
+        FACILITY_CONTRACT_MIN_TOKEN=10000
+        FACILITY_CONTRACT_MAX_TOKEN=100000
       }
 
       resources {

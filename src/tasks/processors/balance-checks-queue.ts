@@ -8,10 +8,8 @@ import { BalancesData } from 'src/checks/schemas/balances-data'
 export class BalanceChecksQueue extends WorkerHost {
   private readonly logger = new Logger(BalanceChecksQueue.name)
 
-  public static readonly JOB_CHECK_RELAY_REGISTRY_OPERATOR =
-    'check-relay-registry-operator'
-  public static readonly JOB_CHECK_DISTRIBUTION_OPERATOR =
-    'check-distribution-operator'
+  public static readonly JOB_CHECK_RELAY_REGISTRY_OPERATOR = 'check-relay-registry-operator'
+  public static readonly JOB_CHECK_DISTRIBUTION_OPERATOR = 'check-distribution-operator'
   public static readonly JOB_CHECK_FACILITY_OPERATOR = 'check-facility-operator'
   public static readonly JOB_CHECK_REGISTRATOR = 'check-registrator'
   public static readonly JOB_PUBLISH_BALANCE_CHECKS = 'publish-balance-checks'
@@ -26,10 +24,8 @@ export class BalanceChecksQueue extends WorkerHost {
     switch (job.name) {
       // verification service - bundlr upload (metrics, stats) + claiming relays
       case BalanceChecksQueue.JOB_CHECK_RELAY_REGISTRY_OPERATOR:
-        const relayRegistryUploadBalance =
-          await this.balanceChecks.getRelayServiceUploadBalance()
-        const relayRegistryOperatorBalance =
-          await this.balanceChecks.getRelayServiceOperatorBalance()
+        const relayRegistryUploadBalance = await this.balanceChecks.getRelayServiceUploadBalance()
+        const relayRegistryOperatorBalance = await this.balanceChecks.getRelayServiceOperatorBalance()
 
         return {
           relayRegistryUploader: relayRegistryUploadBalance.toString(),
@@ -38,8 +34,7 @@ export class BalanceChecksQueue extends WorkerHost {
 
       // distribution service - addScores, distribute
       case BalanceChecksQueue.JOB_CHECK_DISTRIBUTION_OPERATOR:
-        const distributionOperatorBalance =
-          await this.balanceChecks.getDistributionOperatorBalance()
+        const distributionOperatorBalance = await this.balanceChecks.getDistributionOperatorBalance()
 
         return {
           distributionOperator: distributionOperatorBalance.toString(),
@@ -47,10 +42,8 @@ export class BalanceChecksQueue extends WorkerHost {
 
       // events service - updateAllocation gas + token
       case BalanceChecksQueue.JOB_CHECK_FACILITY_OPERATOR:
-        const facilityOperatorBalance =
-          await this.balanceChecks.getFacilityOperatorBalance()
-        const facilityTokenBalance =
-          await this.balanceChecks.getFacilityTokenBalance()
+        const facilityOperatorBalance = await this.balanceChecks.getFacilityOperatorBalance()
+        const facilityTokenBalance = await this.balanceChecks.getFacilityTokenBalance()
 
         return {
           facilityOperator: facilityOperatorBalance.toString(),
@@ -59,26 +52,24 @@ export class BalanceChecksQueue extends WorkerHost {
 
       // registrator service - token
       case BalanceChecksQueue.JOB_CHECK_REGISTRATOR:
-        const registratorBalance =
-          await this.balanceChecks.getRegistratorTokenBalance()
+        const registratorBalance = await this.balanceChecks.getRegistratorTokenBalance()
 
         return {
           registratorTokens: registratorBalance.toString(),
         }
 
       case BalanceChecksQueue.JOB_PUBLISH_BALANCE_CHECKS:
-        const balanceChecks = Object.values(
-          await job.getChildrenValues(),
-        ).reduce((prev, curr) => ({ ...prev, ...curr }), {})
+        const balanceChecks = Object.values(await job.getChildrenValues()).reduce(
+          (prev, curr) => ({ ...prev, ...curr }),
+          {},
+        )
 
         const balancesData: BalancesData = {
           ...balanceChecks,
           stamp: Date.now(),
         }
 
-        const publishResult = await this.balanceChecks.publishBalanceChecks(
-          balancesData,
-        )
+        const publishResult = await this.balanceChecks.publishBalanceChecks(balancesData)
         if (!publishResult) {
           this.logger.error('Failed publishing balance checks', balancesData)
         }

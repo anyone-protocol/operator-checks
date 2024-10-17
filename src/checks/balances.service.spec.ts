@@ -12,9 +12,7 @@ describe('BalancesService', () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot(),
-        MongooseModule.forRoot(
-          'mongodb://localhost/operator-checks-balances-service-tests',
-        ),
+        MongooseModule.forRoot('mongodb://localhost/operator-checks-balances-service-tests'),
         MongooseModule.forFeature([
           {
             name: BalancesData.name,
