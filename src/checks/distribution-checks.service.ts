@@ -48,8 +48,7 @@ export class DistributionChecksService {
     }
 
     const operatorKey = this.config.get<string>('DISTRIBUTION_OPERATOR_KEY', { infer: true })
-
-    if (!operatorKey) this.logger.error('Failed loading operator key')
+    if (!operatorKey) this.logger.error('Missing DISTRIBUTION_OPERATOR_KEY. Skipping distribution checks...')
     else {
       this.operatorMinBalance = this.config.get<number>('DISTRIBUTION_OPERATOR_MIN_BALANCE', { infer: true })
       this.operatorMaxBalance = this.config.get<number>('DISTRIBUTION_OPERATOR_MAX_BALANCE', { infer: true })

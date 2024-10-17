@@ -1,10 +1,6 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import { InjectModel } from '@nestjs/mongoose'
-import { Model } from 'mongoose'
-import { BalancesData } from './schemas/balances-data'
-import BigNumber from 'bignumber.js'
-import { Wallet, ethers } from 'ethers'
+import { ethers } from 'ethers'
 
 @Injectable()
 export class FacilitatorChecksService {
@@ -12,12 +8,14 @@ export class FacilitatorChecksService {
 
   private isLive?: string
 
-  private facilityOperator: ethers.Wallet
-  private facilityAddress: string | undefined
-  private facilityContractMinToken: number
-  private facilityContractMaxToken: number
-  private facilityOperatorMinEth: number
-  private facilityOperatorMaxEth: number
+  private contractAddress: string | undefined
+  private contract: ethers.Contract
+  private contractMinToken: number
+  private contractMaxToken: number
+
+  private operator: ethers.Wallet
+  private operatorMinEth: number
+  private operatorMaxEth: number
 
   private erc20Abi = ['function balanceOf(address owner) view returns (uint256)']
   private tokenAddress: string | undefined
@@ -40,65 +38,62 @@ export class FacilitatorChecksService {
   ) {
     this.isLive = this.config.get<string>('IS_LIVE', { infer: true })
 
-    this.tokenAddress = this.config.get<string>('TOKEN_CONTRACT_ADDRESS', {
-      infer: true,
-    })
+    this.tokenAddress = this.config.get<string>('TOKEN_CONTRACT_ADDRESS', { infer: true })
 
-    this.facilityAddress = this.config.get<string>('FACILITY_CONTRACT_ADDRESS', { infer: true })
-    this.facilityOperatorMinEth = this.config.get<number>('FACILITY_OPERATOR_MIN_ETH', { infer: true })
-    this.facilityOperatorMaxEth = this.config.get<number>('FACILITY_OPERATOR_MAX_ETH', { infer: true })
-    this.facilityContractMinToken = this.config.get<number>('FACILITY_CONTRACT_MIN_TOKEN', { infer: true })
-    this.facilityContractMaxToken = this.config.get<number>('FACILITY_CONTRACT_MAX_TOKEN', { infer: true })
+    this.contractAddress = this.config.get<string>('FACILITY_CONTRACT_ADDRESS', { infer: true })
+    this.operatorMinEth = this.config.get<number>('FACILITY_OPERATOR_MIN_ETH', { infer: true })
+    this.operatorMaxEth = this.config.get<number>('FACILITY_OPERATOR_MAX_ETH', { infer: true })
+    this.contractMinToken = this.config.get<number>('FACILITY_CONTRACT_MIN_TOKEN', { infer: true })
+    this.contractMaxToken = this.config.get<number>('FACILITY_CONTRACT_MAX_TOKEN', { infer: true })
 
     this.jsonRpc = this.config.get<string>('JSON_RPC', { infer: true })
     if (this.jsonRpc == undefined) {
-      this.logger.error('Missing JSON_RPC. Skipping facility checks')
+      this.logger.error('Missing JSON_RPC. Skipping facilitator checks')
     } else {
       this.provider = new ethers.JsonRpcProvider(this.jsonRpc)
 
-      const facilityOperatorKey = this.config.get<string>('FACILITY_OPERATOR_KEY', { infer: true })
-
-      if (facilityOperatorKey == undefined) {
-        this.logger.error('Missing FACILITY_OPERATOR_KEY. Skipping facility checks...')
-      } else {
-        this.facilityOperator = new ethers.Wallet(facilityOperatorKey, this.provider)
+      if (!this.tokenAddress) this.logger.error('Missing TOKEN_CONTRACT_ADDRESS. Skipping facility checks...')
+      else {
+        this.contract = new ethers.Contract(this.tokenAddress, this.erc20Abi, this.provider)
       }
 
-      this.logger.log(
-        `Initialized balance checks for facility ${this.facilityAddress} with operator ${this.facilityOperator.address} and token: ${this.tokenAddress}`,
-      )
+      const operatorKey = this.config.get<string>('FACILITY_OPERATOR_KEY', { infer: true })
+      if (!operatorKey) this.logger.error('Missing FACILITY_OPERATOR_KEY. Skipping facility checks...')
+      else {
+        this.operator = new ethers.Wallet(operatorKey, this.provider)
+        this.logger.log(
+          `Initialized balance checks for facility ${this.contract.getAddress()} with operator ${
+            this.operator.address
+          } and token: ${this.tokenAddress}`,
+        )
+      }
     }
   }
 
-  async getFacilityOperatorBalance(): Promise<bigint> {
-    if (this.facilityOperator) {
+  async getOperatorEth(): Promise<bigint> {
+    if (this.operator) {
       try {
-        const result = await this.provider.getBalance(this.facilityOperator.address)
-        if (result != undefined) {
-          if (result < BigInt(this.facilityOperatorMinEth)) {
-            this.logger.error(`Balance depletion on facility operator: ${result} < ${this.facilityOperatorMinEth}`)
+        const result = await this.provider.getBalance(this.operator.address)
+        if (result) {
+          if (result < BigInt(this.operatorMinEth)) {
+            this.logger.error(`Balance depletion on facility operator: ${result} < ${this.operatorMinEth}`)
           }
           return result
-        } else {
-          this.logger.error(`Failed to fetch facility operator balance`)
-        }
+        } else this.logger.error(`Failed to fetch facility operator balance`)
       } catch (error) {
-        this.logger.error(`Exception while fetching facility operator balance`)
+        this.logger.error(`Exception while fetching facility operator balance`, error.stack)
       }
-    } else {
-      this.logger.error('Facility operator is undefined. Unable to check operator balance')
-    }
+    } else this.logger.error('Facility operator is undefined. Unable to check operator balance')
     return BigInt(0)
   }
 
-  async getFacilityTokenBalance(): Promise<bigint> {
+  async getContractTokens(): Promise<bigint> {
     if (this.tokenAddress) {
       try {
-        const contract = new ethers.Contract(this.tokenAddress, this.erc20Abi, this.provider)
-        const result = await contract.balanceOf(this.facilityAddress)
-        if (result != undefined) {
-          if (result < BigInt(this.facilityContractMinToken)) {
-            this.logger.error(`Balance depletion on facility token: ${result} < ${this.facilityContractMinToken}`)
+        const result = await this.contract.balanceOf(this.contractAddress)
+        if (result) {
+          if (result < BigInt(this.contractMinToken)) {
+            this.logger.error(`Balance depletion on facility token: ${result} < ${this.contractMinToken}`)
           }
           return result
         } else {

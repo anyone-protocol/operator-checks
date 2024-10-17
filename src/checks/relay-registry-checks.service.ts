@@ -48,8 +48,8 @@ export class RelayRegistryChecksService {
     }
 
     const operatorKey = this.config.get<string>('RELAY_REGISTRY_OPERATOR_KEY', { infer: true })
-
-    if (operatorKey !== undefined) {
+    if (!operatorKey) this.logger.error('Missing RELAY_REGISTRY_OPERATOR_KEY. Skipping relay registry checks...')
+    else {
       this.operatorMinBalance = this.config.get<number>('RELAY_REGISTRY_OPERATOR_MIN_BALANCE', { infer: true })
       this.operatorMaxBalance = this.config.get<number>('RELAY_REGISTRY_OPERATOR_MAX_BALANCE', { infer: true })
 
