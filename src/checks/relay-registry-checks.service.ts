@@ -56,7 +56,9 @@ export class RelayRegistryChecksService {
       this.operator = (() => {
         const signer = new EthereumSigner(operatorKey)
         this.logger.log(
-          `Initialized operator: ${this.operator.address} with bounds: ${this.operatorMinBalance}..${this.operatorMaxBalance}`,
+          `Initialized operator: ${signer.getAddress()} with bounds: ${this.operatorMinBalance}..${
+            this.operatorMaxBalance
+          }`,
         )
         return signer
       })()
@@ -85,7 +87,7 @@ export class RelayRegistryChecksService {
   async getOperatorBalance(): Promise<bigint> {
     if (this.operator) {
       try {
-        const result = await this.provider.getBalance(this.operator.address)
+        const result = await this.provider.getBalance(this.operator.getAddress())
         if (result != undefined) {
           if (result < BigInt(this.operatorMinBalance)) {
             this.logger.warn(`Balance depletion on operator: ${result} < ${this.operatorMinBalance}`)

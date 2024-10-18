@@ -19,29 +19,33 @@ export class TasksService implements OnApplicationBootstrap {
 
   public static CHECK_BALANCES_FLOW(stamp: number): FlowJob {
     return {
-      name: 'publish-balance-checks',
+      name: 'review-balance-checks',
       queueName: 'operator-checks-balance-checks-queue',
       data: stamp,
       opts: TasksService.jobOpts,
       children: [
         {
-          name: 'check-facility-operator',
+          name: 'check-facilitator',
           queueName: 'operator-checks-balance-checks-queue',
+          data: stamp,
           opts: TasksService.jobOpts,
         },
         {
-          name: 'check-distribution-operator',
+          name: 'check-distribution',
           queueName: 'operator-checks-balance-checks-queue',
+          data: stamp,
           opts: TasksService.jobOpts,
         },
         {
-          name: 'check-relay-registry-operator',
+          name: 'check-relay-registry',
           queueName: 'operator-checks-balance-checks-queue',
+          data: stamp,
           opts: TasksService.jobOpts,
         },
         {
           name: 'check-registrator',
           queueName: 'operator-checks-balance-checks-queue',
+          data: stamp,
           opts: TasksService.jobOpts,
         },
       ],

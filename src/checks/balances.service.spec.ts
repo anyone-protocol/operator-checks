@@ -1,5 +1,4 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { BullModule } from '@nestjs/bullmq'
 import { ConfigModule } from '@nestjs/config'
 import { MongooseModule } from '@nestjs/mongoose'
 import { BalancesService } from './balances.service'

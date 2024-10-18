@@ -46,7 +46,7 @@ export class RegistratorChecksService {
     }
   }
 
-  async getRegistratorTokenBalance(): Promise<bigint> {
+  async getContractTokens(): Promise<bigint> {
     if (this.tokenAddress) {
       try {
         const result = await this.contract.balanceOf(this.contractAddress)

@@ -17,7 +17,13 @@ import { RelayRegistryChecksService } from './relay-registry-checks.service'
       },
     ]),
   ],
-  providers: [BalancesService],
+  providers: [
+    BalancesService,
+    DistributionChecksService,
+    FacilitatorChecksService,
+    RegistratorChecksService,
+    RelayRegistryChecksService,
+  ],
   exports: [
     BalancesService,
     DistributionChecksService,
