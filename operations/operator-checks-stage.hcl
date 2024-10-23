@@ -200,7 +200,7 @@ jemalloc-bg-thread yes
 
       service {
         name = "operator-checks-stage-redis"
-        port = "rediscache"
+        port = "redis"
         
         check {
           name     = "live Redis health check"
