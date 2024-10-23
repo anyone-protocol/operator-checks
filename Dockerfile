@@ -20,7 +20,9 @@ USER node
 # PRODUCTION
 FROM node:18.16-alpine As production
 
-COPY --chown=node:node --from=build /usr/src/app/node_modules ./node_modules
-COPY --chown=node:node --from=build /usr/src/app/dist ./dist
+WORKDIR /app
 
-CMD [ "node", "dist/src/main.js" ]
+COPY --chown=node:node --from=build /usr/src/app/node_modules /app/node_modules
+COPY --chown=node:node --from=build /usr/src/app/dist /app/dist
+
+CMD [ "node", "/app/dist/main.js" ]
