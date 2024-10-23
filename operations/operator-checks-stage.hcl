@@ -20,7 +20,7 @@ job "operator-checks-stage" {
     task "operator-checks-stage-service" {
       driver = "docker"
       config {
-        image = "ghcr.io/anyone-protocol/operator-checks:[[.deploy]]"
+        image = "ghcr.io/anyone-protocol/operator-checks:[[.commit_sha]]"
       }
 
       env {
