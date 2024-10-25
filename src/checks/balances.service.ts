@@ -17,7 +17,7 @@ export class BalancesService {
 
   async publishBalanceChecks(data: BalancesData[]): Promise<boolean> {
     try {
-      data.forEach((entry) => this.logger.log(`${entry.stamp} ${entry.kind} = ${ethers.formatUnits(entry.amount, 18)}`))
+      // data.forEach((entry) => this.logger.log(`${entry.stamp} ${entry.kind} = ${ethers.formatUnits(entry.amount, 18)}`))
       await this.balancesDataModel.create(data)
       return true
     } catch (error) {

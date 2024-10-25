@@ -79,7 +79,7 @@ export class FacilitatorChecksService {
           if (result < minAmount) {
             this.logger.error(`Balance depletion on facility operator: ${ethers.formatUnits(result, 18)} < ${ethers.formatUnits(minAmount, 18)}`)
           } else {
-            this.logger.debug(`Checked ${result} vs ${minAmount}`)
+            this.logger.debug(`Checked operator eth ${ethers.formatUnits(result, 18)} vs min: ${ethers.formatUnits(minAmount, 18)}`)
           }
           return result
         } else this.logger.error(`Failed to fetch facility operator balance`)
@@ -102,7 +102,7 @@ export class FacilitatorChecksService {
             const maxAmount = ethers.parseUnits(this.contractMaxToken.toString(), 18)
             return maxAmount - result
           } else {
-            this.logger.debug(`Checked ${result} vs ${minAmount}`)
+            this.logger.log(`Checked contract tokens ${ethers.formatUnits(result, 18)} vs min: ${ethers.formatUnits(minAmount, 18)}`)
           }
         } else {
           this.logger.error(`Failed to fetch facility token balance`)
