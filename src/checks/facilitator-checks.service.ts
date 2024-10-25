@@ -34,7 +34,7 @@ export class FacilitatorChecksService {
       FACILITY_OPERATOR_MAX_ETH: number
       FACILITY_CONTRACT_MIN_TOKEN: number
       FACILITY_CONTRACT_MAX_TOKEN: number
-    }>,
+    }>
   ) {
     this.isLive = this.config.get<string>('IS_LIVE', { infer: true })
 
@@ -75,8 +75,11 @@ export class FacilitatorChecksService {
       try {
         const result = await this.provider.getBalance(this.operator.address)
         if (result) {
-          if (result < BigInt(this.operatorMinEth)) {
-            this.logger.error(`Balance depletion on facility operator: ${result} < ${this.operatorMinEth}`)
+          const minAmount = ethers.parseUnits(this.operatorMinEth.toString(), 18)
+          if (result < minAmount) {
+            this.logger.error(`Balance depletion on facility operator: ${ethers.formatUnits(result, 18)} < ${ethers.formatUnits(minAmount, 18)}`)
+          } else {
+            this.logger.debug(`Checked ${result} vs ${minAmount}`)
           }
           return result
         } else this.logger.error(`Failed to fetch facility operator balance`)
@@ -90,12 +93,17 @@ export class FacilitatorChecksService {
   async getContractTokens(): Promise<bigint> {
     if (this.tokenAddress) {
       try {
-        const result = await this.contract.balanceOf(this.contractAddress)
+        const result = await this.contract.balanceOf(this.contractAddress!)
         if (result) {
-          if (result < BigInt(this.contractMinToken)) {
-            this.logger.error(`Balance depletion on facility token: ${result} < ${this.contractMinToken}`)
+          const minAmount = ethers.parseUnits(this.contractMinToken.toString(), 18)
+          if (result < minAmount) {
+            this.logger.warn(`Balance depletion on facility token: ${ethers.formatUnits(result, 18)} < ${ethers.formatUnits(minAmount, 18)}`)
+            
+            const maxAmount = ethers.parseUnits(this.contractMaxToken.toString(), 18)
+            return maxAmount - result
+          } else {
+            this.logger.debug(`Checked ${result} vs ${minAmount}`)
           }
-          return result
         } else {
           this.logger.error(`Failed to fetch facility token balance`)
         }

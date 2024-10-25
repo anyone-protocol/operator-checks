@@ -7,6 +7,7 @@ import { DistributionChecksService } from './distribution-checks.service'
 import { FacilitatorChecksService } from './facilitator-checks.service'
 import { RegistratorChecksService } from './registrator-checks.service'
 import { RelayRegistryChecksService } from './relay-registry-checks.service'
+import { TasksModule } from 'src/tasks/tasks.module'
 
 @Module({
   imports: [

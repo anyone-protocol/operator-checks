@@ -8,6 +8,8 @@ import { FacilitatorChecksService } from 'src/checks/facilitator-checks.service'
 import { RegistratorChecksService } from 'src/checks/registrator-checks.service'
 import { RelayRegistryChecksService } from 'src/checks/relay-registry-checks.service'
 import { BalancesData } from 'src/checks/schemas/balances-data'
+import { TasksService } from '../tasks.service'
+import { ConfigService } from '@nestjs/config'
 
 @Processor('operator-checks-balance-checks-queue')
 export class BalanceChecksQueue extends WorkerHost {
@@ -19,14 +21,22 @@ export class BalanceChecksQueue extends WorkerHost {
   public static readonly JOB_CHECK_REGISTRATOR = 'check-registrator'
   public static readonly JOB_REVIEW_BALANCE_CHECKS = 'review-balance-checks'
 
+  private facilityContractAddress?: string
+
   constructor(
     private readonly balances: BalancesService,
     private readonly distributionChecks: DistributionChecksService,
     private readonly facilitatorChecks: FacilitatorChecksService,
     private readonly registratorChecks: RegistratorChecksService,
     private readonly relayRegistryChecks: RelayRegistryChecksService,
+    private readonly tasks: TasksService,
+    private readonly config: ConfigService<{
+      FACILITY_CONTRACT_ADDRESS: string
+    }>
   ) {
     super()
+
+    this.facilityContractAddress = this.config.get<string>('FACILITY_CONTRACT_ADDRESS', { infer: true })
   }
 
   async process(job: Job<any, any, string>): Promise<BalancesData[]> {
@@ -65,6 +75,9 @@ export class BalanceChecksQueue extends WorkerHost {
         try {
           const operatorEth = await this.facilitatorChecks.getOperatorEth()
           const contractTokens = await this.facilitatorChecks.getContractTokens()
+          if (contractTokens > BigInt(0)) {
+            await this.tasks.requestRefillToken(this.facilityContractAddress!, contractTokens)
+          }
 
           return [
             { stamp: job.data, kind: 'facilitator-operator-eth', amount: operatorEth.toString() },

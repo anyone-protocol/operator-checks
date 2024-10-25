@@ -2,6 +2,7 @@ import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common'
 import { InjectQueue, InjectFlowProducer } from '@nestjs/bullmq'
 import { Queue, FlowProducer, FlowJob } from 'bullmq'
 import { ConfigService } from '@nestjs/config'
+import { ethers } from 'ethers'
 
 @Injectable()
 export class TasksService implements OnApplicationBootstrap {
@@ -59,6 +60,7 @@ export class TasksService implements OnApplicationBootstrap {
     }>,
     @InjectQueue('operator-checks-tasks-queue') public tasksQueue: Queue,
     @InjectQueue('operator-checks-balance-checks-queue') public balancesQueue: Queue,
+    @InjectQueue('operator-checks-refills-queue') public refillsQueue: Queue,
     @InjectFlowProducer('operator-checks-balance-checks-flow')
     public balancesFlow: FlowProducer,
   ) {
@@ -83,6 +85,20 @@ export class TasksService implements OnApplicationBootstrap {
       {},
       {
         delay: delayJob,
+        removeOnComplete: TasksService.removeOnComplete,
+        removeOnFail: TasksService.removeOnFail,
+      },
+    )
+  }
+
+  public async requestRefillToken(address: string, amount: bigint): Promise<void> {
+    this.logger.log(`Requesting token refill for ${address} amount: ${ethers.formatUnits(amount.toString(), 18)}`)
+    const tokenAmount = amount.toString()
+    await this.refillsQueue.add(
+      'refill-token',
+      { tokenReceiver: address, tokenAmount },
+      {
+        delay: 0,
         removeOnComplete: TasksService.removeOnComplete,
         removeOnFail: TasksService.removeOnFail,
       },

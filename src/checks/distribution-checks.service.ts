@@ -55,8 +55,9 @@ export class DistributionChecksService {
 
       this.operator = (() => {
         const signer = new EthereumSigner(operatorKey)
+        const address = signer.getAddress()
         this.logger.log(
-          `Initialized operator: ${signer.getAddress()} with bounds: ${this.operatorMinBalance}..${
+          `Initialized operator: ${address} with bounds: ${this.operatorMinBalance}..${
             this.operatorMaxBalance
           }`,
         )
