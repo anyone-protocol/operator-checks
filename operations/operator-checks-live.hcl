@@ -48,7 +48,7 @@ job "operator-checks-live" {
       }
 
       vault {
-        policies = ["valid-ator-live", "operator-checks-live"]
+        policies = ["valid-ator-live", "operator-checks-live", "ario-bundler-any1"]
       }
 
       template {

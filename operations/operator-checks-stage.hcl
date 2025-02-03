@@ -48,7 +48,7 @@ job "operator-checks-stage" {
       }
 
       vault {
-        policies = ["valid-ator-stage", "operator-checks-stage"]
+        policies = ["valid-ator-stage", "operator-checks-stage", "ario-bundler-any1"]
       }
 
       template {
