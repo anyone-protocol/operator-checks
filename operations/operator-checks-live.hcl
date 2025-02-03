@@ -32,16 +32,14 @@ job "operator-checks-live" {
 
         RELAY_REGISTRY_OPERATOR_MIN_BALANCE=1000000
         RELAY_REGISTRY_OPERATOR_MAX_BALANCE=100000000
-        # RELAY_REGISTRY_UPLOADER_MIN_BALANCE=2000000
-        # RELAY_REGISTRY_UPLOADER_MAX_BALANCE=200000000
         DISTRIBUTION_OPERATOR_MIN_BALANCE=3000000
         DISTRIBUTION_OPERATOR_MAX_BALANCE=300000000
-        # DISTRIBUTION_UPLOADER_MIN_BALANCE=3000000
-        # DISTRIBUTION_UPLOADER_MAX_BALANCE=3000000
         FACILITY_OPERATOR_MIN_ETH=1
         FACILITY_OPERATOR_MAX_ETH=5
         FACILITY_CONTRACT_MIN_TOKEN=10000
         FACILITY_CONTRACT_MAX_TOKEN=100000
+        BUNDLER_MIN_AR=1
+        BUNDLER_MAX_AR=5
       }
 
       vault {
@@ -73,6 +71,9 @@ job "operator-checks-live" {
           FACILITY_CONTRACT_ADDRESS="[[ consulKey "facilitator/sepolia/live/address" ]]"
           REGISTRATOR_CONTRACT_ADDRESS="[[ consulKey "registrator/sepolia/live/address" ]]"
           TOKEN_CONTRACT_ADDRESS="[[ consulKey "ator-token/sepolia/live/address" ]]"
+          {{ with secret `kv/ario-bundler` }}
+            BUNDLER_OPERATOR_JWK={{ base64Decode .Data.data.BUNDLER_KEY_BASE64 }}
+          {{end}}
         EOH
         destination = "secrets/file.env"
         env         = true

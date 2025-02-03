@@ -7,7 +7,7 @@ import { DistributionChecksService } from './distribution-checks.service'
 import { FacilitatorChecksService } from './facilitator-checks.service'
 import { RegistratorChecksService } from './registrator-checks.service'
 import { RelayRegistryChecksService } from './relay-registry-checks.service'
-import { TasksModule } from 'src/tasks/tasks.module'
+import { BundlerChecksService } from './bundler-checks.service'
 
 @Module({
   imports: [
@@ -24,6 +24,7 @@ import { TasksModule } from 'src/tasks/tasks.module'
     FacilitatorChecksService,
     RegistratorChecksService,
     RelayRegistryChecksService,
+    BundlerChecksService
   ],
   exports: [
     BalancesService,
@@ -31,6 +32,7 @@ import { TasksModule } from 'src/tasks/tasks.module'
     FacilitatorChecksService,
     RegistratorChecksService,
     RelayRegistryChecksService,
+    BundlerChecksService
   ],
 })
 export class ChecksModule {}

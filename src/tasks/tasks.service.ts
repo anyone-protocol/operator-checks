@@ -49,6 +49,12 @@ export class TasksService implements OnApplicationBootstrap {
           data: stamp,
           opts: TasksService.jobOpts,
         },
+        {
+          name: 'check-bundler',
+          queueName: 'operator-checks-balance-checks-queue',
+          data: stamp,
+          opts: TasksService.jobOpts,
+        }
       ],
     }
   }

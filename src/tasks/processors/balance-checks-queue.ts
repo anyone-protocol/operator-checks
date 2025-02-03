@@ -9,6 +9,7 @@ import { RelayRegistryChecksService } from 'src/checks/relay-registry-checks.ser
 import { BalancesData } from 'src/checks/schemas/balances-data'
 import { TasksService } from '../tasks.service'
 import { ConfigService } from '@nestjs/config'
+import { BundlerChecksService } from 'src/checks/bundler-checks.service'
 
 @Processor('operator-checks-balance-checks-queue')
 export class BalanceChecksQueue extends WorkerHost {
@@ -18,6 +19,7 @@ export class BalanceChecksQueue extends WorkerHost {
   public static readonly JOB_CHECK_DISTRIBUTION = 'check-distribution'
   public static readonly JOB_CHECK_FACILITATOR = 'check-facilitator'
   public static readonly JOB_CHECK_REGISTRATOR = 'check-registrator'
+  public static readonly JOB_CHECK_BUNDLER = 'check-bundler'
   public static readonly JOB_REVIEW_BALANCE_CHECKS = 'review-balance-checks'
 
   private facilityContractAddress?: string
@@ -28,6 +30,7 @@ export class BalanceChecksQueue extends WorkerHost {
     private readonly facilitatorChecks: FacilitatorChecksService,
     private readonly registratorChecks: RegistratorChecksService,
     private readonly relayRegistryChecks: RelayRegistryChecksService,
+    private readonly bundlerChecks: BundlerChecksService,
     private readonly tasks: TasksService,
     private readonly config: ConfigService<{
       FACILITY_CONTRACT_ADDRESS: string
@@ -63,6 +66,18 @@ export class BalanceChecksQueue extends WorkerHost {
           ]
         } catch (error) {
           this.logger.error('Failed checking distribution', error.stack)
+          return []
+        }
+
+      case BalanceChecksQueue.JOB_CHECK_BUNDLER:
+        try {
+          const bundlerOperatorBalance = await this.bundlerChecks.getOperatorBalance()
+
+          return [
+            { stamp: job.data, kind: 'bundler-operator-balance', amount: bundlerOperatorBalance.toString() },
+          ]
+        } catch (error) {
+          this.logger.error('Failed checking bundler', error.stack)
           return []
         }
 
