@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import { ethers, Wallet } from 'ethers'
+import Arweave from 'arweave'
+import BigNumber from 'bignumber.js'
+import { sendAosDryRun } from 'src/util/send-aos-message'
 
 @Injectable()
 export class DistributionChecksService {
@@ -8,70 +10,76 @@ export class DistributionChecksService {
 
   private isLive?: string
 
-  private jsonRpc: string | undefined
-  private provider: ethers.JsonRpcProvider
+  private aoTokenProcessId: string
+  private operatorAddress: string
+  private operatorMinAOBalance: number
+  private operatorMaxAOBalance: number
 
-  private operator
-  private operatorMinBalance: number
-  private operatorMaxBalance: number
+  private arweave = Arweave.init({})
 
   constructor(
     private readonly config: ConfigService<{
       IS_LIVE: string
-      JSON_RPC: string
-      BUNDLER_NODE: string
-      BUNDLER_NETWORK: string
       DISTRIBUTION_OPERATOR_KEY: string
-      DISTRIBUTION_OPERATOR_MIN_BALANCE: number
-      DISTRIBUTION_OPERATOR_MAX_BALANCE: number
+      RELAY_REWARDS_OPERATOR_MIN_AO_BALANCE: number
+      RELAY_REWARDS_OPERATOR_MAX_AO_BALANCE: number
+      AO_TOKEN_PROCESS_ID: string
     }>,
   ) {
     this.isLive = this.config.get<string>('IS_LIVE', { infer: true })
 
-    this.jsonRpc = this.config.get<string>('JSON_RPC', { infer: true })
-    if (this.jsonRpc == undefined) {
-      this.logger.error('Missing JSON_RPC. Skipping facility checks')
-    } else {
-      this.provider = new ethers.JsonRpcProvider(this.jsonRpc)
+    const operatorJWK = this.config.get<string>('DISTRIBUTION_OPERATOR_KEY', { infer: true })
+    if (!operatorJWK) {
+      this.logger.error('Missing DISTRIBUTION_OPERATOR_KEY. Skipping relay rewards operator $AO checks!')
+      return
+    }
+    const aoTokenProcessId = this.config.get<string>('AO_TOKEN_PROCESS_ID', { infer: true })
+    if (!aoTokenProcessId) {
+      this.logger.error('Missing AO_TOKEN_PROCESS_ID! Skipping relay rewards operator $AO checks!')
+      return
     }
 
-    const operatorKey = this.config.get<string>('DISTRIBUTION_OPERATOR_KEY', { infer: true })
-    if (!operatorKey) this.logger.error('Missing DISTRIBUTION_OPERATOR_KEY. Skipping distribution checks...')
-    else {
-      this.operatorMinBalance = this.config.get<number>('DISTRIBUTION_OPERATOR_MIN_BALANCE', { infer: true })
-      this.operatorMaxBalance = this.config.get<number>('DISTRIBUTION_OPERATOR_MAX_BALANCE', { infer: true })
-
-      this.operator = (() => {
-        const signer = new Wallet(operatorKey)
-        signer
-          .getAddress()
-          .then(address =>
-            this.logger.log(
-              `Initialized operator: ${address}` +
-                ` with bounds:` +
-                ` ${this.operatorMinBalance}..${this.operatorMaxBalance}`
-            )
-          )
-          
-        return signer
-      })()
-    }
+    this.operatorMinAOBalance = this.config.get<number>('RELAY_REWARDS_OPERATOR_MIN_AO_BALANCE', { infer: true })
+    this.operatorMaxAOBalance = this.config.get<number>('RELAY_REWARDS_OPERATOR_MAX_AO_BALANCE', { infer: true })
+    this.aoTokenProcessId = aoTokenProcessId
+    this.arweave.wallets
+      .jwkToAddress(JSON.parse(operatorJWK))
+      .then(address => {
+        this.logger.log(`Initialized relay rewards operator checks for address: [${address}]`)
+        this.operatorAddress = address
+      })
   }
 
-  async getOperatorBalance(): Promise<bigint> {
-    if (this.operator) {
-      try {
-        const result = await this.provider.getBalance(await this.operator.getAddress())
-        if (result != undefined) {
-          if (result < BigInt(this.operatorMinBalance)) {
-            this.logger.warn(`Balance depletion on operator: ${result} < ${this.operatorMinBalance}`)
-          }
-          return result
-        } else this.logger.error(`Failed to fetch operator balance`)
-      } catch (error) {
-        this.logger.error(`Exception while fetching operator balance`, error.stack)
-      }
-    } else this.logger.error('Operator undefined. Unable to operator balance')
-    return BigInt(0)
+  async getOperatorBalance(): Promise<BigNumber> {
+    // const { result } = await sendAosDryRun({
+    //   processId: this.aoTokenProcessId,
+    //   tags: [
+    //     { name: 'Action', value: 'Balance' },
+    //     { name: 'Recipient', value: this.operatorAddress }
+    //   ]
+    // })
+
+    // const balanceData = JSON.parse(result.Messages[0].Data)
+
+    this.logger.warn(
+      'Relay Rewards Operator balance check not yet implemented!'
+    )
+
+    return BigNumber(0)
+    // throw new Error('Not yet implemented')
+    // if (this.operator) {
+    //   try {
+    //     const result = await this.provider.getBalance(await this.operator.getAddress())
+    //     if (result != undefined) {
+    //       if (result < BigInt(this.operatorMinAOBalance)) {
+    //         this.logger.warn(`Balance depletion on operator: ${result} < ${this.operatorMinAOBalance}`)
+    //       }
+    //       return result
+    //     } else this.logger.error(`Failed to fetch operator balance`)
+    //   } catch (error) {
+    //     this.logger.error(`Exception while fetching operator balance`, error.stack)
+    //   }
+    // } else this.logger.error('Operator undefined. Unable to operator balance')
+    // return BigInt(0)
   }
 }

@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import Arweave from 'arweave'
+import BigNumber from 'bignumber.js'
 import { ethers, Wallet } from 'ethers'
 
 @Injectable()
@@ -11,67 +13,50 @@ export class RelayRegistryChecksService {
   private jsonRpc: string | undefined
   private provider: ethers.JsonRpcProvider
 
-  private operator
-  private operatorMinBalance: number
-  private operatorMaxBalance: number
+  private aoTokenProcessId: string
+  private operatorAddress: string
+  private operatorMinAOBalance: number
+  private operatorMaxAOBalance: number
+
+  private arweave = Arweave.init({})
 
   constructor(
     private readonly config: ConfigService<{
       IS_LIVE: string
-      JSON_RPC: string
       RELAY_REGISTRY_OPERATOR_KEY: string
-      BUNDLER_NODE: string
-      BUNDLER_NETWORK: string
-      RELAY_REGISTRY_OPERATOR_MIN_BALANCE: number
-      RELAY_REGISTRY_OPERATOR_MAX_BALANCE: number
+      OPERATOR_REGISTRY_OPERATOR_MIN_AO_BALANCE: number
+      OPERATOR_REGISTRY_OPERATOR_MAX_AO_BALANCE: number
+      AO_TOKEN_PROCESS_ID: string
     }>,
   ) {
     this.isLive = this.config.get<string>('IS_LIVE', { infer: true })
 
-    this.jsonRpc = this.config.get<string>('JSON_RPC', { infer: true })
-    if (this.jsonRpc == undefined) {
-      this.logger.error('Missing JSON_RPC. Skipping facility checks')
-    } else {
-      this.provider = new ethers.JsonRpcProvider(this.jsonRpc)
+    const operatorJWK = this.config.get<string>('RELAY_REGISTRY_OPERATOR_KEY', { infer: true })
+    if (!operatorJWK) {
+      this.logger.error('Missing RELAY_REGISTRY_OPERATOR_KEY. Skipping operator registry operator $AO checks!')
+      return
     }
-
-    const operatorKey = this.config.get<string>('RELAY_REGISTRY_OPERATOR_KEY', { infer: true })
-    if (!operatorKey) this.logger.error('Missing RELAY_REGISTRY_OPERATOR_KEY. Skipping relay registry checks...')
-    else {
-      this.operatorMinBalance = this.config.get<number>('RELAY_REGISTRY_OPERATOR_MIN_BALANCE', { infer: true })
-      this.operatorMaxBalance = this.config.get<number>('RELAY_REGISTRY_OPERATOR_MAX_BALANCE', { infer: true })
-
-      this.operator = (() => {
-        const signer = new Wallet(operatorKey)
-        signer
-          .getAddress()
-          .then(address =>
-            this.logger.log(
-              `Initialized operator: ${address}` +
-                ` with bounds:` +
-                ` ${this.operatorMinBalance}..${this.operatorMaxBalance}`
-            )
-          )
-          
-        return signer
-      })()
+    const aoTokenProcessId = this.config.get<string>('AO_TOKEN_PROCESS_ID', { infer: true })
+    if (!aoTokenProcessId) {
+      this.logger.error('Missing AO_TOKEN_PROCESS_ID! Skipping operator registry operator $AO checks!')
+      return
     }
+    this.operatorMinAOBalance = this.config.get<number>('OPERATOR_REGISTRY_OPERATOR_MIN_AO_BALANCE', { infer: true })
+    this.operatorMaxAOBalance = this.config.get<number>('OPERATOR_REGISTRY_OPERATOR_MAX_AO_BALANCE', { infer: true })
+    this.aoTokenProcessId = aoTokenProcessId
+    this.arweave.wallets
+      .jwkToAddress(JSON.parse(operatorJWK))
+      .then(address => {
+        this.logger.log(`Initialized operator registry operator checks for address: [${address}]`)
+        this.operatorAddress = address
+      })
   }
 
-  async getOperatorBalance(): Promise<bigint> {
-    if (this.operator) {
-      try {
-        const result = await this.provider.getBalance(await this.operator.getAddress())
-        if (result != undefined) {
-          if (result < BigInt(this.operatorMinBalance)) {
-            this.logger.warn(`Balance depletion on operator: ${result} < ${this.operatorMinBalance}`)
-          }
-          return result
-        } else this.logger.error(`Failed to fetch operator balance`)
-      } catch (error) {
-        this.logger.error(`Exception while fetching operator balance`, error.stack)
-      }
-    } else this.logger.error('Operator undefined. Unable to operator balance')
-    return BigInt(0)
+  async getOperatorBalance(): Promise<BigNumber> {
+    this.logger.warn(
+      'Operator Registry Operator balance check not yet implemented!'
+    )
+
+    return BigNumber(0)
   }
 }

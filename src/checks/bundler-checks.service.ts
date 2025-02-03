@@ -33,7 +33,12 @@ export class BundlerChecksService {
     } else {
       this.operatorMinBalance = this.config.get<number>('BUNDLER_MIN_AR', { infer: true })
       this.operatorMaxBalance = this.config.get<number>('BUNDLER_MAX_AR', { infer: true })
-      this.arweave.wallets.jwkToAddress(JSON.parse(operatorJWK)).then((address) => this.bundlerAddress = address)
+      this.arweave.wallets
+        .jwkToAddress(JSON.parse(operatorJWK))
+        .then(address => {
+          this.logger.log(`Initialized bundler operator checks for address: [${address}]`)
+          this.bundlerAddress = address
+        })
     }
   }
 
