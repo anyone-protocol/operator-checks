@@ -43,7 +43,9 @@ export class BundlerChecksService {
         const winstonBalance = await this.arweave.wallets.getBalance(this.bundlerAddress)
         const arBalance = BigNumber(this.arweave.ar.winstonToAr(winstonBalance))
         if (arBalance.lt(BigNumber(this.operatorMinBalance))) {
-          this.logger.warn(`Balance depletion on operator [${this.bundlerAddress}]: ${arBalance} $AR < ${this.operatorMinBalance} $AR`)
+          this.logger.warn(`Balance depletion on operator [${this.bundlerAddress}]: ${arBalance} $AR < ${this.operatorMinBalance} $AR min`)
+        } else if (arBalance.gt(BigNumber(this.operatorMaxBalance))) {
+          this.logger.warn(`Balance accumulation on operator [${this.bundlerAddress}]: ${arBalance} $AR > ${this.operatorMaxBalance} $AR max`)
         }
         return arBalance
       } catch (error) {

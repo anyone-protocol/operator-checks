@@ -76,8 +76,11 @@ export class FacilitatorChecksService {
         const result = await this.provider.getBalance(this.operator.address)
         if (result) {
           const minAmount = ethers.parseUnits(this.operatorMinEth.toString(), 18)
+          const maxAmount = ethers.parseUnits(this.operatorMaxEth.toString(), 18)
           if (result < minAmount) {
-            this.logger.error(`Balance depletion on facility operator: ${ethers.formatUnits(result, 18)} < ${ethers.formatUnits(minAmount, 18)}`)
+            this.logger.warn(`Balance depletion on facility operator: ${ethers.formatUnits(result, 18)} $ETH < ${ethers.formatUnits(minAmount, 18)} $ETH`)
+          } else if (result > maxAmount) {
+            this.logger.warn(`Balance accumulation on facility operator: ${ethers.formatUnits(result, 18)} $ETH > ${ethers.formatUnits(minAmount, 18)} $ETH`)
           } else {
             this.logger.debug(`Checked operator eth ${ethers.formatUnits(result, 18)} vs min: ${ethers.formatUnits(minAmount, 18)}`)
           }
@@ -96,11 +99,15 @@ export class FacilitatorChecksService {
         const result = await this.contract.balanceOf(this.contractAddress!)
         if (result) {
           const minAmount = ethers.parseUnits(this.contractMinToken.toString(), 18)
+          const maxAmount = ethers.parseUnits(this.contractMaxToken.toString(), 18)
           if (result < minAmount) {
-            this.logger.warn(`Balance depletion on facility token: ${ethers.formatUnits(result, 18)} < ${ethers.formatUnits(minAmount, 18)}`)
+            this.logger.warn(`Balance depletion on facility token: ${ethers.formatUnits(result, 18)} $ANYONE < ${ethers.formatUnits(minAmount, 18)} $ANYONE`)
             
-            const maxAmount = ethers.parseUnits(this.contractMaxToken.toString(), 18)
             return maxAmount - result
+          } else if (result > maxAmount) {
+            this.logger.warn(`Balance accumulation on facility token: ${ethers.formatUnits(result, 18)} $ANYONE > ${ethers.formatUnits(minAmount, 18)} $ANYONE`)
+            
+            return BigInt(0)
           } else {
             this.logger.log(`Checked contract tokens ${ethers.formatUnits(result, 18)} vs min: ${ethers.formatUnits(minAmount, 18)}`)
           }

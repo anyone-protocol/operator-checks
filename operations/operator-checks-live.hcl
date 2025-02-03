@@ -38,8 +38,8 @@ job "operator-checks-live" {
         FACILITY_OPERATOR_MAX_ETH=5
         FACILITY_CONTRACT_MIN_TOKEN=10000
         FACILITY_CONTRACT_MAX_TOKEN=100000
-        BUNDLER_MIN_AR=1
-        BUNDLER_MAX_AR=5
+        BUNDLER_MIN_AR=10
+        BUNDLER_MAX_AR=100
       }
 
       vault {
