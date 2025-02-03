@@ -1,6 +1,5 @@
 import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq'
 import { Logger } from '@nestjs/common'
-import { ExceptionsHandler } from '@nestjs/core/exceptions/exceptions-handler'
 import { Job } from 'bullmq'
 import { BalancesService } from 'src/checks/balances.service'
 import { DistributionChecksService } from 'src/checks/distribution-checks.service'
@@ -45,11 +44,9 @@ export class BalanceChecksQueue extends WorkerHost {
     switch (job.name) {
       case BalanceChecksQueue.JOB_CHECK_RELAY_REGISTRY:
         try {
-          const uploaderBalance = await this.relayRegistryChecks.getUploaderBalance()
           const operatorBalance = await this.relayRegistryChecks.getOperatorBalance()
 
           return [
-            { stamp: job.data, kind: 'relay-registry-uploader-balance', amount: uploaderBalance.toString() },
             { stamp: job.data, kind: 'relay-registry-operator-balance', amount: operatorBalance.toString() },
           ]
         } catch (error) {
@@ -59,11 +56,9 @@ export class BalanceChecksQueue extends WorkerHost {
 
       case BalanceChecksQueue.JOB_CHECK_DISTRIBUTION:
         try {
-          const uploaderBalance = await this.distributionChecks.getUploaderBalance()
           const operatorBalance = await this.distributionChecks.getOperatorBalance()
 
           return [
-            { stamp: job.data, kind: 'distribution-uploader-balance', amount: uploaderBalance.toString() },
             { stamp: job.data, kind: 'distribution-operator-balance', amount: operatorBalance.toString() },
           ]
         } catch (error) {

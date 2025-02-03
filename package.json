@@ -24,7 +24,6 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
-    "@bundlr-network/client": "^0.11.2",
     "@nestjs/bullmq": "^1.1.0",
     "@nestjs/common": "^9.4.0",
     "@nestjs/config": "^2.3.1",
@@ -35,11 +34,7 @@
     "bullmq": "^3.12.0",
     "ethers": "^6.11.1",
     "lodash": "^4.17.21",
-    "mongoose": "^7.0.5",
-    "warp-contracts": "^1.4.45",
-    "warp-contracts-plugin-ethers": "^1.0.8",
-    "warp-contracts-plugin-signature": "^1.0.20",
-    "warp-contracts-subscription-plugin": "^1.0.4"
+    "mongoose": "^7.0.5"
   },
   "devDependencies": {
     "@nestjs/cli": "^9.4.2",
