@@ -48,35 +48,32 @@ export class DistributionChecksService {
   }
 
   async getOperatorBalance(): Promise<BigNumber> {
-    // const { result } = await sendAosDryRun({
-    //   processId: this.aoTokenProcessId,
-    //   tags: [
-    //     { name: 'Action', value: 'Balance' },
-    //     { name: 'Recipient', value: this.operatorAddress }
-    //   ]
-    // })
+    try {
+      const { result } = await sendAosDryRun({
+        processId: this.aoTokenProcessId,
+        tags: [
+          { name: 'Action', value: 'Balance' },
+          { name: 'Recipient', value: this.operatorAddress }
+        ]
+      })
+      const balance = BigNumber(result.Messages[0].Data)
 
-    // const balanceData = JSON.parse(result.Messages[0].Data)
+      if (balance.lt(this.operatorMinAOBalance)) {
+        this.logger.warn(`Balance depletion on relay rewards operator: ${balance} $AO < ${this.operatorMinAOBalance} $AO`)
+      } else if (balance.gt(this.operatorMaxAOBalance)) {
+        this.logger.warn(`Balance accumulation on relay rewards operator: ${balance} $AO > ${this.operatorMaxAOBalance} $AO`)
+      } else {
+        this.logger.log(`Relay rewards operator balance: ${balance} $AO`)
+      }
 
-    this.logger.warn(
-      'Relay Rewards Operator balance check not yet implemented!'
-    )
+      return balance
+    } catch (error) {
+      this.logger.error(
+        `Exception while fetching relay rewards operator $AO balance`,
+        error.stack
+      )
+    }
 
     return BigNumber(0)
-    // throw new Error('Not yet implemented')
-    // if (this.operator) {
-    //   try {
-    //     const result = await this.provider.getBalance(await this.operator.getAddress())
-    //     if (result != undefined) {
-    //       if (result < BigInt(this.operatorMinAOBalance)) {
-    //         this.logger.warn(`Balance depletion on operator: ${result} < ${this.operatorMinAOBalance}`)
-    //       }
-    //       return result
-    //     } else this.logger.error(`Failed to fetch operator balance`)
-    //   } catch (error) {
-    //     this.logger.error(`Exception while fetching operator balance`, error.stack)
-    //   }
-    // } else this.logger.error('Operator undefined. Unable to operator balance')
-    // return BigInt(0)
   }
 }

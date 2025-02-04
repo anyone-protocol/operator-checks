@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import BigNumber from 'bignumber.js'
 import { ethers, Wallet } from 'ethers'
+import { sendAosDryRun } from 'src/util/send-aos-message'
 
 @Injectable()
 export class RelayRegistryChecksService {
@@ -49,9 +50,31 @@ export class RelayRegistryChecksService {
   }
 
   async getOperatorBalance(): Promise<BigNumber> {
-    this.logger.warn(
-      'Operator Registry Operator balance check not yet implemented!'
-    )
+    try {
+      const { result } = await sendAosDryRun({
+        processId: this.aoTokenProcessId,
+        tags: [
+          { name: 'Action', value: 'Balance' },
+          { name: 'Recipient', value: this.operatorAddress }
+        ]
+      })
+      const balance = BigNumber(result.Messages[0].Data)
+
+      if (balance.lt(this.operatorMinAOBalance)) {
+        this.logger.warn(`Balance depletion on operator registry operator: ${balance} $AO < ${this.operatorMinAOBalance} $AO`)
+      } else if (balance.gt(this.operatorMaxAOBalance)) {
+        this.logger.warn(`Balance accumulation on operator registry operator: ${balance} $AO > ${this.operatorMaxAOBalance} $AO`)
+      } else {
+        this.logger.log(`operator registry operator balance: ${balance} $AO`)
+      }
+
+      return balance
+    } catch (error) {
+      this.logger.error(
+        `Exception while fetching operator registry operator $AO balance`,
+        error.stack
+      )
+    }
 
     return BigNumber(0)
   }

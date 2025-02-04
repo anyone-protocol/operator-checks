@@ -50,7 +50,7 @@ export class BalanceChecksQueue extends WorkerHost {
           const operatorBalance = await this.relayRegistryChecks.getOperatorBalance()
 
           return [
-            { stamp: job.data, kind: 'relay-registry-operator-balance', amount: operatorBalance.toString() },
+            { stamp: job.data, kind: 'relay-registry-operator-ao-balance', amount: operatorBalance.toString() },
           ]
         } catch (error) {
           this.logger.error('Failed checking relay registry', error.stack)
@@ -62,7 +62,7 @@ export class BalanceChecksQueue extends WorkerHost {
           const operatorBalance = await this.distributionChecks.getOperatorBalance()
 
           return [
-            { stamp: job.data, kind: 'distribution-operator-balance', amount: operatorBalance.toString() },
+            { stamp: job.data, kind: 'distribution-operator-ao-balance', amount: operatorBalance.toString() },
           ]
         } catch (error) {
           this.logger.error('Failed checking distribution', error.stack)
@@ -74,7 +74,7 @@ export class BalanceChecksQueue extends WorkerHost {
           const bundlerOperatorBalance = await this.bundlerChecks.getOperatorBalance()
 
           return [
-            { stamp: job.data, kind: 'bundler-operator-balance', amount: bundlerOperatorBalance.toString() },
+            { stamp: job.data, kind: 'bundler-operator-ar-balance', amount: bundlerOperatorBalance.toString() },
           ]
         } catch (error) {
           this.logger.error('Failed checking bundler', error.stack)
