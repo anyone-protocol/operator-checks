@@ -100,7 +100,7 @@ job "operator-checks-stage" {
       service {
         name = "operator-checks-stage"
         port = "operator-checks"
-        
+        tags = ["logging"]
         check {
           name     = "operator-checks health check"
           type     = "http"

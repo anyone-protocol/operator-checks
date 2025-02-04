@@ -97,7 +97,7 @@ job "operator-checks-live" {
       service {
         name = "operator-checks-live"
         port = "operator-checks"
-        
+        tags = ["logging"]
         check {
           name     = "operator-checks health check"
           type     = "http"
