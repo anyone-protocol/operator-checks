@@ -13,7 +13,7 @@ export class BundlerChecksService {
   private operatorMinBalance: number
   private operatorMaxBalance: number
 
-  private arweave = Arweave.init({})
+  private arweave: Arweave
 
   constructor(
     private readonly config: ConfigService<{
@@ -21,6 +21,9 @@ export class BundlerChecksService {
       BUNDLER_OPERATOR_JWK: string
       BUNDLER_MIN_AR: number
       BUNDLER_MAX_AR: number
+      ARWEAVE_GATEWAY_PROTOCOL: string
+      ARWEAVE_GATEWAY_HOST: string
+      ARWEAVE_GATEWAY_PORT: number
     }>,
   ) {
     this.isLive = this.config.get<string>('IS_LIVE', { infer: true })
@@ -33,6 +36,12 @@ export class BundlerChecksService {
     } else {
       this.operatorMinBalance = this.config.get<number>('BUNDLER_MIN_AR', { infer: true })
       this.operatorMaxBalance = this.config.get<number>('BUNDLER_MAX_AR', { infer: true })
+      const arweaveConfig = {
+        host: this.config.get<string>('ARWEAVE_GATEWAY_HOST', { infer: true }) || 'arweave.net',
+        port: this.config.get<number>('ARWEAVE_GATEWAY_PORT', { infer: true }) || 443,
+        protocol: this.config.get<string>('ARWEAVE_GATEWAY_PROTOCOL', { infer: true }) || 'https'
+      }
+      this.arweave = Arweave.init(arweaveConfig)
       this.arweave.wallets
         .jwkToAddress(JSON.parse(operatorJWK))
         .then(address => {

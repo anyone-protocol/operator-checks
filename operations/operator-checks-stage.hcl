@@ -79,6 +79,11 @@ job "operator-checks-stage" {
           {{ with secret `kv/ario-bundler` }}
             BUNDLER_OPERATOR_JWK={{ base64Decode .Data.data.BUNDLER_KEY_BASE64 | toJSON }}
           {{end}}
+          {{- range service "ario-any1-envoy" }}
+            ARWEAVE_GATEWAY_PROTOCOL="http"
+            ARWEAVE_GATEWAY_HOST="{{ .Address }}"
+            ARWEAVE_GATEWAY_PORT={{ .Port }}
+          {{ end -}}
         EOH
         destination = "secrets/file.env"
         env         = true
