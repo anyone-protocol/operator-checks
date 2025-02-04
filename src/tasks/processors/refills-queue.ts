@@ -10,7 +10,7 @@ export class RefillsQueue extends WorkerHost {
   public static readonly JOB_REFILL_ETH = 'refill-eth'
   public static readonly JOB_REFILL_TOKEN = 'refill-token'
   public static readonly JOB_REFILL_AR = 'refill-ar'
-  public static readonly JOB_REFILL_UPLOADER = 'refill-uploader'
+  public static readonly JOB_REFILL_AO = 'refill-ao'
   
   constructor(
     private readonly refills: RefillsService,
@@ -56,10 +56,10 @@ export class RefillsQueue extends WorkerHost {
           return false
         }
 
-      case RefillsQueue.JOB_REFILL_UPLOADER:
+      case RefillsQueue.JOB_REFILL_AO:
         const { uploaderAddress, uploaderAmount } = job.data
         try {
-          const outcome = await this.refills.fundUploader(uploaderAddress, uploaderAmount)
+          const outcome = await this.refills.sendAoTo(uploaderAddress, uploaderAmount)
 
           return outcome
         } catch (error) {

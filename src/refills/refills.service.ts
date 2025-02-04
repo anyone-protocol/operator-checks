@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import Arweave from 'arweave'
+import { JWKInterface } from 'arweave/node/lib/wallet'
 import { ethers } from 'ethers'
 
 @Injectable()
@@ -9,12 +11,14 @@ export class RefillsService {
   private isLive?: string
   private jsonRpc?: string
   private tokenAddress?: string
-
   private ethSpender: ethers.Wallet
+  private ethSpenderAddress: string
   private provider: ethers.JsonRpcProvider 
   private tokenContract: ethers.Contract
-
-  private erc20Abi = ['function transfer(address to, uint256 amount) returns (bool)'];
+  private erc20Abi = ['function transfer(address to, uint256 amount) returns (bool)']
+  private arweave: Arweave
+  private arSpender: JWKInterface
+  private arSpenderAddress: string
 
   constructor(
     private readonly config: ConfigService<{
@@ -25,26 +29,38 @@ export class RefillsService {
       BUNDLER_NETWORK: string
       ETH_SPENDER_KEY: string
       AR_SPENDER_KEY: string
+      ARWEAVE_GATEWAY_PROTOCOL: string
+      ARWEAVE_GATEWAY_HOST: string
+      ARWEAVE_GATEWAY_PORT: number
     }>,
   ) {
     this.isLive = this.config.get<string>('IS_LIVE', { infer: true })
     this.jsonRpc = this.config.get<string>('JSON_RPC', { infer: true })
     this.tokenAddress = this.config.get<string>('TOKEN_CONTRACT_ADDRESS', { infer: true })
-
     const ethSpenderKey = this.config.get<string>('ETH_SPENDER_KEY', { infer: true })
-
     this.provider = new ethers.JsonRpcProvider(this.jsonRpc)
-
     this.ethSpender = new ethers.Wallet(
       ethSpenderKey!,
-      this.provider,
+      this.provider
     )
-
-    this.tokenContract = new ethers.Contract(this.tokenAddress!, this.erc20Abi, this.ethSpender)
-    
-    const arSpenderKey = this.config.get<string>('AR_SPENDER_KEY', { infer: true })
-
-    this.logger.log(`Initialized refills service with ethSpender ${this.ethSpender.address}, arSpender ${this}`)
+    this.tokenContract = new ethers.Contract(this.tokenAddress!, this.erc20Abi, this.ethSpender)    
+    this.arSpender = JSON.parse(
+      this.config.get<string>('AR_SPENDER_KEY', { infer: true }) || '{}'
+    )
+    const arweaveConfig = {
+      host: this.config.get<string>('ARWEAVE_GATEWAY_HOST', { infer: true }) || 'arweave.net',
+      port: this.config.get<number>('ARWEAVE_GATEWAY_PORT', { infer: true }) || 443,
+      protocol: this.config.get<string>('ARWEAVE_GATEWAY_PROTOCOL', { infer: true }) || 'https'
+    }
+    this.arweave = Arweave.init(arweaveConfig)
+    this.arweave.wallets.jwkToAddress(this.arSpender).then(address => {
+      this.arSpenderAddress = address
+      this.logger.log(`Initialized refills service with arSpender [${address}]`)
+    })
+    this.ethSpender.getAddress().then(address => {
+      this.ethSpenderAddress = address
+      this.logger.log(`Initialized refills service with ethSpender [${address}]`)
+    })
   }
 
   async sendEthTo(address: string, amount: string): Promise<boolean> {
@@ -63,9 +79,13 @@ export class RefillsService {
       if (this.isLive == 'true') {
         const tx = await this.tokenContract.transfer(address, ethers.parseUnits(amount, 18))
         await tx.wait()
-        this.logger.log(`Finished sending ${amount} tokens to ${address}. Tx: ${tx}`)
+        this.logger.log(
+          `EthSpender [${this.ethSpenderAddress}] finished sending [${amount}] tokens to [${address}] with tx [${tx.hash}]`
+        )
       } else {
-        this.logger.warn(`NOT LIVE, Finished sending ${amount} tokens to ${address}.`)
+        this.logger.warn(
+          `NOT LIVE, EthSpender [${this.ethSpenderAddress}] did NOT send [${amount}] tokens to [${address}]`
+        )
       }
       
       return true
@@ -77,22 +97,48 @@ export class RefillsService {
 
   async sendArTo(address: string, amount: string): Promise<boolean> {
     try {
-      this.logger.warn('sendArTo - Not implemented yet')
+      if (this.isLive == 'true') {
+        const tx = await this.arweave.createTransaction({
+          target: address,
+          quantity: this.arweave.ar.arToWinston(amount)
+        }, this.arSpender)
+        await this.arweave.transactions.sign(tx, this.arSpender)
+
+        const response = await this.arweave.transactions.post(tx)
+
+        if (response.status === 200) {
+          this.logger.log(
+            `ArSpender [${this.arSpenderAddress}] finished sending [${amount}] AR to [${address}] with tx [${tx.id}]`
+          )
+
+          return true
+        }
+
+        this.logger.warn(
+          `Failed to send [${amount}] AR to [${address}]: ${JSON.stringify(response)}`
+        )
+
+        return false
+      } else { 
+        this.logger.warn(
+          `NOT LIVE, Finished sending [${amount}] AR to [${address}].`
+        )
+      }
       
       return true
     } catch (error) {
-      this.logger.error(`Failed to send ${amount} AR to ${address}`, error.stack)
+      this.logger.error(`Failed to send [${amount}] AR to [${address}]`, error.stack)
       return false
     }
   }
   
-  async fundUploader(address: string, amount: string): Promise<boolean> {
+  async sendAoTo(address: string, amount: string): Promise<boolean> {
     try {
-      this.logger.warn('fundUploader - Not implemented yet')
+      this.logger.warn('sendAoTo - Not implemented yet')
       
       return true
     } catch (error) {
-      this.logger.error(`Failed to fund the uploader by ${amount} for ${address}`, error.stack)
+      this.logger.error(`Failed to send ${amount} $AO to ${address}`, error.stack)
       return false
     }
   }

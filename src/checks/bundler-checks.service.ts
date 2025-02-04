@@ -51,22 +51,31 @@ export class BundlerChecksService {
     }
   }
 
-  async getOperatorBalance(): Promise<BigNumber> {
+  async getOperatorBalance(): Promise<{
+    balance: BigNumber,
+    requestAmount?: BigNumber,
+    address?: string
+  }> {
     if (this.bundlerAddress) {
       try {
         const winstonBalance = await this.arweave.wallets.getBalance(this.bundlerAddress)
         const arBalance = BigNumber(this.arweave.ar.winstonToAr(winstonBalance))
         if (arBalance.lt(BigNumber(this.operatorMinBalance))) {
           this.logger.warn(`Balance depletion on operator [${this.bundlerAddress}]: ${arBalance} $AR < ${this.operatorMinBalance} $AR min`)
+          
+          return {
+            balance: arBalance,
+            requestAmount: BigNumber(this.operatorMaxBalance).minus(arBalance)
+          }
         } else if (arBalance.gt(BigNumber(this.operatorMaxBalance))) {
           this.logger.warn(`Balance accumulation on operator [${this.bundlerAddress}]: ${arBalance} $AR > ${this.operatorMaxBalance} $AR max`)
         }
-        return arBalance
+        return { balance: arBalance }
       } catch (error) {
         this.logger.error(`Exception while fetching operator balance`, error.stack)
       }
     } else this.logger.error('Operator undefined. Unable to fetch operator balance')
 
-    return BigNumber(0)
+    return { balance: BigNumber(0) }
   }
 }

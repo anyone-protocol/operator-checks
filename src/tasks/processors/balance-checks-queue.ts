@@ -71,10 +71,23 @@ export class BalanceChecksQueue extends WorkerHost {
 
       case BalanceChecksQueue.JOB_CHECK_BUNDLER:
         try {
-          const bundlerOperatorBalance = await this.bundlerChecks.getOperatorBalance()
+          const {
+            balance,
+            requestAmount,
+            address
+          } = await this.bundlerChecks.getOperatorBalance()
+
+          if (requestAmount && address) {
+            await this.tasks.requestRefillAr(address, requestAmount)
+          }
 
           return [
-            { stamp: job.data, kind: 'bundler-operator-ar-balance', amount: bundlerOperatorBalance.toString() },
+            {
+              stamp: job.data,
+              kind: 'bundler-operator-ar-balance',
+              amount: balance.toString(),
+              requestAmount: requestAmount?.toString() || undefined
+            },
           ]
         } catch (error) {
           this.logger.error('Failed checking bundler', error.stack)

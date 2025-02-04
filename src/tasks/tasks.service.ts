@@ -3,6 +3,7 @@ import { InjectQueue, InjectFlowProducer } from '@nestjs/bullmq'
 import { Queue, FlowProducer, FlowJob } from 'bullmq'
 import { ConfigService } from '@nestjs/config'
 import { ethers } from 'ethers'
+import BigNumber from 'bignumber.js'
 
 @Injectable()
 export class TasksService implements OnApplicationBootstrap {
@@ -91,6 +92,19 @@ export class TasksService implements OnApplicationBootstrap {
       {},
       {
         delay: delayJob,
+        removeOnComplete: TasksService.removeOnComplete,
+        removeOnFail: TasksService.removeOnFail,
+      },
+    )
+  }
+
+  public async requestRefillAr(address: string, amount: BigNumber) {
+    this.logger.log(`Requesting [${amount}] $AR refill for [${address}]`)
+    await this.refillsQueue.add(
+      'refill-ar',
+      { arReceiver: address, arAmount: amount.toString() },
+      {
+        delay: 0,
         removeOnComplete: TasksService.removeOnComplete,
         removeOnFail: TasksService.removeOnFail,
       },
