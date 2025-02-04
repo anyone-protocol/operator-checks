@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import Arweave from 'arweave'
 import BigNumber from 'bignumber.js'
+import { Wallet } from 'ethers'
 import { sendAosDryRun } from 'src/util/send-aos-message'
 
 @Injectable()
@@ -15,8 +15,6 @@ export class DistributionChecksService {
   private operatorMinAOBalance: number
   private operatorMaxAOBalance: number
 
-  private arweave = Arweave.init({})
-
   constructor(
     private readonly config: ConfigService<{
       IS_LIVE: string
@@ -28,8 +26,8 @@ export class DistributionChecksService {
   ) {
     this.isLive = this.config.get<string>('IS_LIVE', { infer: true })
 
-    const operatorJWK = this.config.get<string>('DISTRIBUTION_OPERATOR_KEY', { infer: true })
-    if (!operatorJWK) {
+    const operatorKey = this.config.get<string>('DISTRIBUTION_OPERATOR_KEY', { infer: true })
+    if (!operatorKey) {
       this.logger.error('Missing DISTRIBUTION_OPERATOR_KEY. Skipping relay rewards operator $AO checks!')
       return
     }
@@ -42,12 +40,11 @@ export class DistributionChecksService {
     this.operatorMinAOBalance = this.config.get<number>('RELAY_REWARDS_OPERATOR_MIN_AO_BALANCE', { infer: true })
     this.operatorMaxAOBalance = this.config.get<number>('RELAY_REWARDS_OPERATOR_MAX_AO_BALANCE', { infer: true })
     this.aoTokenProcessId = aoTokenProcessId
-    this.arweave.wallets
-      .jwkToAddress(JSON.parse(operatorJWK))
-      .then(address => {
-        this.logger.log(`Initialized relay rewards operator checks for address: [${address}]`)
-        this.operatorAddress = address
-      })
+    const wallet = new Wallet(operatorKey)
+    wallet.getAddress().then(address => {
+      this.logger.log(`Initialized relay rewards operator checks for address: [${address}]`)
+      this.operatorAddress = address
+    })
   }
 
   async getOperatorBalance(): Promise<BigNumber> {

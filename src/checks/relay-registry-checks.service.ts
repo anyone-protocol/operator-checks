@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import Arweave from 'arweave'
 import BigNumber from 'bignumber.js'
 import { ethers, Wallet } from 'ethers'
 
@@ -18,8 +17,6 @@ export class RelayRegistryChecksService {
   private operatorMinAOBalance: number
   private operatorMaxAOBalance: number
 
-  private arweave = Arweave.init({})
-
   constructor(
     private readonly config: ConfigService<{
       IS_LIVE: string
@@ -31,8 +28,8 @@ export class RelayRegistryChecksService {
   ) {
     this.isLive = this.config.get<string>('IS_LIVE', { infer: true })
 
-    const operatorJWK = this.config.get<string>('RELAY_REGISTRY_OPERATOR_KEY', { infer: true })
-    if (!operatorJWK) {
+    const operatorKey = this.config.get<string>('RELAY_REGISTRY_OPERATOR_KEY', { infer: true })
+    if (!operatorKey) {
       this.logger.error('Missing RELAY_REGISTRY_OPERATOR_KEY. Skipping operator registry operator $AO checks!')
       return
     }
@@ -44,12 +41,11 @@ export class RelayRegistryChecksService {
     this.operatorMinAOBalance = this.config.get<number>('OPERATOR_REGISTRY_OPERATOR_MIN_AO_BALANCE', { infer: true })
     this.operatorMaxAOBalance = this.config.get<number>('OPERATOR_REGISTRY_OPERATOR_MAX_AO_BALANCE', { infer: true })
     this.aoTokenProcessId = aoTokenProcessId
-    this.arweave.wallets
-      .jwkToAddress(JSON.parse(operatorJWK))
-      .then(address => {
-        this.logger.log(`Initialized operator registry operator checks for address: [${address}]`)
-        this.operatorAddress = address
-      })
+    const wallet = new Wallet(operatorKey)
+    wallet.getAddress().then(address => {
+      this.logger.log(`Initialized operator registry operator checks for address: [${address}]`)
+      this.operatorAddress = address
+    })
   }
 
   async getOperatorBalance(): Promise<BigNumber> {
