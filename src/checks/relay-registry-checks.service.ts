@@ -49,7 +49,11 @@ export class RelayRegistryChecksService {
     })
   }
 
-  async getOperatorBalance(): Promise<BigNumber> {
+  async getOperatorBalance(): Promise<{
+    balance: BigNumber,
+    address?: string,
+    requestAmount?: BigNumber
+  }> {
     try {
       const { result } = await sendAosDryRun({
         processId: this.aoTokenProcessId,
@@ -63,13 +67,19 @@ export class RelayRegistryChecksService {
 
       if (balance.lt(this.operatorMinAOBalance)) {
         this.logger.warn(`Balance depletion on operator registry operator: ${balance} $AO < ${this.operatorMinAOBalance} $AO`)
+
+        return {
+          balance,
+          address: this.operatorAddress,
+          requestAmount: BigNumber(this.operatorMaxAOBalance).minus(balance)
+        }
       } else if (balance.gt(this.operatorMaxAOBalance)) {
         this.logger.warn(`Balance accumulation on operator registry operator: ${balance} $AO > ${this.operatorMaxAOBalance} $AO`)
       } else {
         this.logger.log(`operator registry operator balance: ${balance} $AO`)
       }
 
-      return balance
+      return { balance, address: this.operatorAddress }
     } catch (error) {
       this.logger.error(
         `Exception while fetching operator registry operator $AO balance`,
@@ -77,6 +87,6 @@ export class RelayRegistryChecksService {
       )
     }
 
-    return BigNumber(0)
+    return { balance: BigNumber(0), address: this.operatorAddress }
   }
 }

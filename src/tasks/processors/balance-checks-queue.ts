@@ -47,10 +47,20 @@ export class BalanceChecksQueue extends WorkerHost {
     switch (job.name) {
       case BalanceChecksQueue.JOB_CHECK_RELAY_REGISTRY:
         try {
-          const operatorBalance = await this.relayRegistryChecks.getOperatorBalance()
+          const {
+            balance,
+            requestAmount,
+            address
+          } = await this.relayRegistryChecks.getOperatorBalance()
 
           return [
-            { stamp: job.data, kind: 'relay-registry-operator-ao-balance', amount: operatorBalance.toString() },
+            {
+              stamp: job.data,
+              kind: 'relay-registry-operator-ao-balance',
+              amount: balance.toString(),
+              address,
+              requestAmount: requestAmount?.toString() || undefined
+            },
           ]
         } catch (error) {
           this.logger.error('Failed checking relay registry', error.stack)
@@ -59,10 +69,20 @@ export class BalanceChecksQueue extends WorkerHost {
 
       case BalanceChecksQueue.JOB_CHECK_DISTRIBUTION:
         try {
-          const operatorBalance = await this.distributionChecks.getOperatorBalance()
+          const {
+            balance,
+            requestAmount,
+            address
+          } = await this.distributionChecks.getOperatorBalance()
 
           return [
-            { stamp: job.data, kind: 'distribution-operator-ao-balance', amount: operatorBalance.toString() },
+            {
+              stamp: job.data,
+              kind: 'distribution-operator-ao-balance',
+              amount: balance.toString(),
+              address,
+              requestAmount: requestAmount?.toString() || undefined
+            },
           ]
         } catch (error) {
           this.logger.error('Failed checking distribution', error.stack)
@@ -86,7 +106,8 @@ export class BalanceChecksQueue extends WorkerHost {
               stamp: job.data,
               kind: 'bundler-operator-ar-balance',
               amount: balance.toString(),
-              requestAmount: requestAmount?.toString() || undefined
+              requestAmount: requestAmount?.toString() || undefined,
+              address
             },
           ]
         } catch (error) {
@@ -96,15 +117,31 @@ export class BalanceChecksQueue extends WorkerHost {
 
       case BalanceChecksQueue.JOB_CHECK_FACILITATOR:
         try {
-          const operatorEth = await this.facilitatorChecks.getOperatorEth()
-          const contractTokens = await this.facilitatorChecks.getContractTokens()
-          if (contractTokens > BigInt(0)) {
-            await this.tasks.requestRefillToken(this.facilityContractAddress!, contractTokens)
+          const ethCheck = await this.facilitatorChecks.getOperatorEth()
+          const tokensCheck = await this.facilitatorChecks.getContractTokens()
+
+          if (tokensCheck.requestAmount && tokensCheck.address) {
+            await this.tasks.requestRefillToken(
+              tokensCheck.address,
+              tokensCheck.requestAmount
+            )
           }
 
           return [
-            { stamp: job.data, kind: 'facilitator-operator-eth', amount: operatorEth.toString() },
-            { stamp: job.data, kind: 'facilitator-contract-tokens', amount: contractTokens.toString() },
+            {
+              stamp: job.data,
+              kind: 'facilitator-operator-eth',
+              amount: ethCheck.balance.toString(),
+              requestAmount: ethCheck.requestAmount?.toString() || undefined,
+              address: ethCheck.address
+            },
+            {
+              stamp: job.data,
+              kind: 'facilitator-contract-tokens',
+              amount: tokensCheck.balance.toString(),
+              requestAmount: tokensCheck.requestAmount?.toString() || undefined,
+              address: tokensCheck.address
+            },
           ]
         } catch (error) {
           this.logger.error('Failed checking facilitator', error.stack)
@@ -113,9 +150,14 @@ export class BalanceChecksQueue extends WorkerHost {
 
       case BalanceChecksQueue.JOB_CHECK_REGISTRATOR:
         try {
-          const contractTokens = await this.registratorChecks.getContractTokens()
+          const tokensCheck = await this.registratorChecks.getContractTokens()
 
-          return [{ stamp: job.data, kind: 'registrator-contract-tokens', amount: contractTokens.toString() }]
+          return [{
+            stamp: job.data,
+            kind: 'registrator-contract-tokens',
+            amount: tokensCheck.balance.toString(),
+            address: tokensCheck.address
+          }]
         } catch (error) {
           this.logger.error('Failed checking registrator', error.stack)
           return []

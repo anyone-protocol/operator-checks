@@ -46,18 +46,30 @@ export class RegistratorChecksService {
     }
   }
 
-  async getContractTokens(): Promise<bigint> {
-    if (this.tokenAddress) {
-      try {
-        const result = await this.contract.balanceOf(this.contractAddress)
-        if (result != undefined) {
-          return result
-        } else this.logger.error(`Failed to fetch registrator token balance`)
-      } catch (error) {
-        this.logger.error('Exception while fetching registrator token balance', error.stack)
-      }
-    } else this.logger.error('Token address not provided. Unable to check registrator token balance.')
+  async getContractTokens(): Promise<{
+    balance: bigint
+    requestAmount?: bigint
+    address?: string
+  }> {
+    if (!this.tokenAddress) {
+      this.logger.error('Token address not provided. Unable to check registrator token balance.')
+      return { balance: BigInt(0) }
+    }
 
-    return BigInt(0)
+    try {
+      const result = await this.contract.balanceOf(this.contractAddress!)
+      if (!result) {
+        this.logger.error(`Failed to fetch registrator token balance`)
+        return { balance: BigInt(0) }
+      }
+
+      this.logger.log(`Checked contract tokens ${ethers.formatUnits(result, 18)}`)
+
+      return { balance: result }
+    } catch (error) {
+      this.logger.error('Exception while fetching registrator token balance', error)
+    }
+
+    return { balance: BigInt(0) }
   }
 }

@@ -65,11 +65,24 @@ export class RefillsService {
 
   async sendEthTo(address: string, amount: string): Promise<boolean> {
     try {
-      this.logger.warn('sendEthTo - Not implemented yet')
+      if (this.isLive == 'true') {
+        const tx = await this.ethSpender.sendTransaction({
+          to: address,
+          value: ethers.parseEther(amount)
+        })
+        await tx.wait()
+        this.logger.log(
+          `EthSpender [${this.ethSpenderAddress}] finished sending [${amount}] $ETH to [${address}] with tx [${tx.hash}]`
+        )
+      } else {
+        this.logger.warn(
+          `NOT LIVE, EthSpender [${this.ethSpenderAddress}] did NOT send [${amount}] $ETH to [${address}]`
+        )
+      }
       
       return true
     } catch (error) {
-      this.logger.error(`Failed to send ${amount} ETH to ${address}`, error.stack)
+      this.logger.error(`Failed to send ${amount} $ETH to ${address}`, error.stack)
       return false
     }
   }
@@ -90,7 +103,7 @@ export class RefillsService {
       
       return true
     } catch (error) {
-      this.logger.error(`Failed to send ${amount} tokens to ${address}`, error.stack)
+      this.logger.error(`EthSpender [${this.ethSpenderAddress}] failed to send [${amount}] tokens to [${address}]`, error.stack)
       return false
     }
   }
@@ -103,31 +116,30 @@ export class RefillsService {
           quantity: this.arweave.ar.arToWinston(amount)
         }, this.arSpender)
         await this.arweave.transactions.sign(tx, this.arSpender)
-
         const response = await this.arweave.transactions.post(tx)
 
         if (response.status === 200) {
           this.logger.log(
-            `ArSpender [${this.arSpenderAddress}] finished sending [${amount}] AR to [${address}] with tx [${tx.id}]`
+            `ArSpender [${this.arSpenderAddress}] finished sending [${amount}] $AR to [${address}] with tx [${tx.id}]`
           )
 
           return true
         }
 
         this.logger.warn(
-          `Failed to send [${amount}] AR to [${address}]: ${JSON.stringify(response)}`
+          `Failed to send [${amount}] $AR to [${address}]: ${JSON.stringify(response)}`
         )
 
         return false
       } else { 
         this.logger.warn(
-          `NOT LIVE, Finished sending [${amount}] AR to [${address}].`
+          `NOT LIVE, ArSpender [${this.arSpenderAddress}] did NOT send [${amount}] $AR to [${address}].`
         )
       }
       
       return true
     } catch (error) {
-      this.logger.error(`Failed to send [${amount}] AR to [${address}]`, error.stack)
+      this.logger.error(`Failed to send [${amount}] $AR to [${address}]`, error.stack)
       return false
     }
   }
@@ -138,7 +150,7 @@ export class RefillsService {
       
       return true
     } catch (error) {
-      this.logger.error(`Failed to send ${amount} $AO to ${address}`, error.stack)
+      this.logger.error(`Failed to send [${amount}] $AO to [${address}]`, error.stack)
       return false
     }
   }

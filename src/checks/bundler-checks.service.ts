@@ -52,8 +52,8 @@ export class BundlerChecksService {
   }
 
   async getOperatorBalance(): Promise<{
-    balance: BigNumber,
-    requestAmount?: BigNumber,
+    balance: BigNumber
+    requestAmount?: BigNumber
     address?: string
   }> {
     if (this.bundlerAddress) {
@@ -65,17 +65,18 @@ export class BundlerChecksService {
           
           return {
             balance: arBalance,
-            requestAmount: BigNumber(this.operatorMaxBalance).minus(arBalance)
+            requestAmount: BigNumber(this.operatorMaxBalance).minus(arBalance),
+            address: this.bundlerAddress
           }
         } else if (arBalance.gt(BigNumber(this.operatorMaxBalance))) {
           this.logger.warn(`Balance accumulation on operator [${this.bundlerAddress}]: ${arBalance} $AR > ${this.operatorMaxBalance} $AR max`)
         }
-        return { balance: arBalance }
+        return { balance: arBalance, address: this.bundlerAddress }
       } catch (error) {
         this.logger.error(`Exception while fetching operator balance`, error.stack)
       }
     } else this.logger.error('Operator undefined. Unable to fetch operator balance')
 
-    return { balance: BigNumber(0) }
+    return { balance: BigNumber(0), address: this.bundlerAddress }
   }
 }

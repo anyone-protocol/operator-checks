@@ -16,6 +16,9 @@ export class BalancesData {
 
   @Prop({ type: String})
   requestAmount?: string
+
+  @Prop({ type: String })
+  address?: string
 }
 
 export const BalancesDataSchema = SchemaFactory.createForClass(BalancesData)
