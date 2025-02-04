@@ -77,7 +77,7 @@ job "operator-checks-stage" {
           REGISTRATOR_CONTRACT_ADDRESS="[[ consulKey "registrator/sepolia/stage/address" ]]"
           TOKEN_CONTRACT_ADDRESS="[[ consulKey "ator-token/sepolia/stage/address" ]]"
           {{ with secret `kv/ario-bundler` }}
-            BUNDLER_OPERATOR_JWK={{ base64Decode .Data.data.BUNDLER_KEY_BASE64 }}
+            BUNDLER_OPERATOR_JWK={{ base64Decode .Data.data.BUNDLER_KEY_BASE64 | toJSON }}
           {{end}}
         EOH
         destination = "secrets/file.env"
