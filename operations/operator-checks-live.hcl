@@ -212,7 +212,7 @@ job "operator-checks-live" {
       service {
         name = "operator-checks-live-redis"
         port = "redis"
-        
+        tags = ["logging"]
         check {
           name     = "live Redis health check"
           type     = "tcp"

@@ -215,7 +215,7 @@ job "operator-checks-stage" {
       service {
         name = "operator-checks-stage-redis"
         port = "redis"
-        
+        tags = ["logging"]
         check {
           name     = "live Redis health check"
           type     = "tcp"
