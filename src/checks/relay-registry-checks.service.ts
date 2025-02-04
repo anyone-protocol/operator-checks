@@ -58,7 +58,8 @@ export class RelayRegistryChecksService {
           { name: 'Recipient', value: this.operatorAddress }
         ]
       })
-      const balance = BigNumber(result.Messages[0].Data)
+      // divide by 10e11 to convert from atomic unit to $AO
+      const balance = BigNumber(result.Messages[0].Data).div('10e11')
 
       if (balance.lt(this.operatorMinAOBalance)) {
         this.logger.warn(`Balance depletion on operator registry operator: ${balance} $AO < ${this.operatorMinAOBalance} $AO`)
