@@ -72,7 +72,7 @@ job "operator-checks-stage" {
           {{- end }}
           {{with secret "kv/operator-checks/stage"}}
             ETH_SPENDER_KEY="{{.Data.data.ETH_SPENDER_KEY}}"
-            AR_SPENDER_KEY="{{ base64Decode .Data.data.AR_SPENDER_KEY_BASE64 | toJSON }}"
+            AR_SPENDER_KEY={{ base64Decode .Data.data.AR_SPENDER_KEY_BASE64 | toJSON }}
           {{end}}
           RELAY_REGISTRY_CONTRACT_TXID="[[ consulKey "smart-contracts/stage/relay-registry-address" ]]"
           DISTRIBUTION_CONTRACT_TXID="[[ consulKey "smart-contracts/stage/distribution-address" ]]"
