@@ -63,7 +63,7 @@ export class FacilitatorChecksService {
         this.operator.getAddress().then(address => {
           this.operatorAddress = address
           this.logger.log(
-            `Initialized balance checks for facility ${this.contract.getAddress()} with operator ${
+            `Initialized balance checks for facility ${this.contractAddress} with operator ${
               address
             } and token: ${this.tokenAddress}`,
           )
