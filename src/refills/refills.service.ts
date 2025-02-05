@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import Arweave from 'arweave'
 import { JWKInterface } from 'arweave/node/lib/wallet'
+import BigNumber from 'bignumber.js'
 import { ethers } from 'ethers'
 
 @Injectable()
@@ -60,7 +61,6 @@ export class RefillsService {
       protocol: this.config.get<string>('ARWEAVE_GATEWAY_PROTOCOL', { infer: true }) || 'https'
     }
     this.arweave = Arweave.init(arweaveConfig)
-    this.logger.log('HELLO FROM REFILLS SERVICE')
     try {
       this.arweave.wallets.jwkToAddress(this.arSpender).then(address => {
         this.arSpenderAddress = address
@@ -123,6 +123,15 @@ export class RefillsService {
   async sendArTo(address: string, amount: string): Promise<boolean> {
     try {
       if (this.isLive == 'true') {
+        const arSpenderBalanceWinston = await this.arweave.wallets.getBalance(this.arSpenderAddress)
+        const arSpenderBalance = this.arweave.ar.winstonToAr(arSpenderBalanceWinston)
+        if (BigNumber(arSpenderBalance).lt(BigNumber(amount))) {
+          this.logger.warn(
+            `ArSpender [${this.arSpenderAddress}] does not have enough balance [${arSpenderBalance}] $AR to send [${amount}] $AR to [${address}]`
+          )
+          return false
+        }
+
         const tx = await this.arweave.createTransaction({
           target: address,
           quantity: this.arweave.ar.arToWinston(amount)
