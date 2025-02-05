@@ -5,13 +5,14 @@ import winston, { createLogger } from 'winston';
 
 export const logz = createLogger({
   transports: [
-    new (winston.transports.Console)({
+    new winston.transports.Console({
       format: winston.format.combine(
         winston.format.timestamp(),
         winston.format.printf(({ level, message, context, timestamp }) => {
           return `${timestamp}|${level}|${context}: ${message}`;
         }),
-      )
+      ),
+      handleExceptions: true
     }),
   ],
 });
