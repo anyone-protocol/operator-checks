@@ -8,6 +8,7 @@ export const logz = createLogger({
     new winston.transports.Console({
       format: winston.format.combine(
         winston.format.timestamp(),
+        winston.format.errors({ stack: true }),
         winston.format.printf(({ level, message, context, timestamp }) => {
           return `${timestamp}|${level}|${context}: ${message}`;
         }),
