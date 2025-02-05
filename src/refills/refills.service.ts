@@ -53,6 +53,7 @@ export class RefillsService {
       protocol: this.config.get<string>('ARWEAVE_GATEWAY_PROTOCOL', { infer: true }) || 'https'
     }
     this.arweave = Arweave.init(arweaveConfig)
+    this.logger.log('HELLO FROM REFILLS SERVICE')
     try {
       this.arweave.wallets.jwkToAddress(this.arSpender).then(address => {
         this.arSpenderAddress = address
