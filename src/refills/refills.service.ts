@@ -53,10 +53,14 @@ export class RefillsService {
       protocol: this.config.get<string>('ARWEAVE_GATEWAY_PROTOCOL', { infer: true }) || 'https'
     }
     this.arweave = Arweave.init(arweaveConfig)
-    this.arweave.wallets.jwkToAddress(this.arSpender).then(address => {
-      this.arSpenderAddress = address
-      this.logger.log(`Initialized refills service with arSpender [${address}]`)
-    })
+    try {
+      this.arweave.wallets.jwkToAddress(this.arSpender).then(address => {
+        this.arSpenderAddress = address
+        this.logger.log(`Initialized refills service with arSpender [${address}]`)
+      })
+    } catch (error) {
+      this.logger.error('Failed to initialize refills service with arSpender', error.stack)
+    }
     this.ethSpender.getAddress().then(address => {
       this.ethSpenderAddress = address
       this.logger.log(`Initialized refills service with ethSpender [${address}]`)
