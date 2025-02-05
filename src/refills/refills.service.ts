@@ -43,10 +43,14 @@ export class RefillsService {
       ethSpenderKey!,
       this.provider
     )
-    this.tokenContract = new ethers.Contract(this.tokenAddress!, this.erc20Abi, this.ethSpender)    
-    this.arSpender = JSON.parse(
-      this.config.get<string>('AR_SPENDER_KEY', { infer: true }) || '{}'
-    )
+    this.tokenContract = new ethers.Contract(this.tokenAddress!, this.erc20Abi, this.ethSpender)
+    const arSpenderKey = this.config.get<string>('AR_SPENDER_KEY', { infer: true })
+    if (!arSpenderKey) {
+      this.logger.error('Missing AR_SPENDER_KEY. Skipping refills service!')
+      throw new Error('Missing AR_SPENDER_KEY')
+    }
+
+    this.arSpender = JSON.parse(arSpenderKey)
     const arweaveConfig = {
       host: this.config.get<string>('ARWEAVE_GATEWAY_HOST', { infer: true }) || 'arweave.net',
       port: this.config.get<number>('ARWEAVE_GATEWAY_PORT', { infer: true }) || 443,
