@@ -116,6 +116,11 @@ job "operator-checks-stage" {
     }
 
     task "operator-checks-redis-stage" {
+      lifecycle {
+        hook = "prestart"
+        sidecar = true
+      }
+
       driver = "docker"
       config {
         image = "redis:7.2"
