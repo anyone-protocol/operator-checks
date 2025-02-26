@@ -63,7 +63,7 @@ export class BalanceChecksQueue extends WorkerHost {
             },
           ]
         } catch (error) {
-          this.logger.error('Failed checking relay registry', error.stack)
+          this.logger.error('Failed checking relay registry', { stack: error.stack, alarm: true })
           return []
         }
 
@@ -85,7 +85,7 @@ export class BalanceChecksQueue extends WorkerHost {
             },
           ]
         } catch (error) {
-          this.logger.error('Failed checking distribution', error.stack)
+          this.logger.error('Failed checking distribution', { stack: error.stack, alarm: true })
           return []
         }
 
@@ -111,7 +111,7 @@ export class BalanceChecksQueue extends WorkerHost {
             },
           ]
         } catch (error) {
-          this.logger.error('Failed checking bundler', error.stack)
+          this.logger.error('Failed checking bundler', { stack: error.stack, alarm: true })
           return []
         }
 
@@ -144,7 +144,7 @@ export class BalanceChecksQueue extends WorkerHost {
             },
           ]
         } catch (error) {
-          this.logger.error('Failed checking facilitator', error.stack)
+          this.logger.error('Failed checking facilitator', { stack: error.stack, alarm: true })
           return []
         }
 
@@ -159,7 +159,7 @@ export class BalanceChecksQueue extends WorkerHost {
             address: tokensCheck.address
           }]
         } catch (error) {
-          this.logger.error('Failed checking registrator', error.stack)
+          this.logger.error('Failed checking registrator', { stack: error.stack, alarm: true })
           return []
         }
 
@@ -185,5 +185,15 @@ export class BalanceChecksQueue extends WorkerHost {
   @OnWorkerEvent('completed')
   onCompleted(job: Job<any, any, string>) {
     this.logger.debug(`Finished ${job.name} [${job.id}]`)
+  }
+
+  @OnWorkerEvent('failed')
+  onFailed(job: Job<any, any, string>) {
+    this.logger.error(`Failed ${job.name} [${job.id}]`, { reason: job.failedReason, alarm: true })
+  }
+
+  @OnWorkerEvent('error')
+  onError(job: Job<any, any, string>) {
+    this.logger.error(`Errored ${job.name} [${job.id}]`, { reason: job.failedReason, alarm: true })
   }
 }

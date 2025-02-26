@@ -29,7 +29,7 @@ export class RefillsQueue extends WorkerHost {
 
           return outcome
         } catch (error) {
-          this.logger.error(`Failed to refill eth balance for ${ethReceiver} ${ethAmount}`, error.stack)
+          this.logger.error(`Failed to refill eth balance for ${ethReceiver} ${ethAmount}`, { stack: error.stack, alarm: true })
           return false
         }
 
@@ -41,7 +41,7 @@ export class RefillsQueue extends WorkerHost {
 
           return outcome
         } catch (error) {
-          this.logger.error(`Failed to refill token balance for ${tokenReceiver} ${tokenAmount}`, error.stack)
+          this.logger.error(`Failed to refill token balance for ${tokenReceiver} ${tokenAmount}`, { stack: error.stack, alarm: true })
           return false
         }
 
@@ -52,7 +52,7 @@ export class RefillsQueue extends WorkerHost {
 
           return outcome
         } catch (error) {
-          this.logger.error(`Failed to refill token balance for ${arReceiver} ${arAmount}`, error.stack)
+          this.logger.error(`Failed to refill token balance for ${arReceiver} ${arAmount}`, { stack: error.stack, alarm: true })
           return false
         }
 
@@ -63,7 +63,7 @@ export class RefillsQueue extends WorkerHost {
 
           return outcome
         } catch (error) {
-          this.logger.error(`Failed to refill token balance for ${uploaderAddress} ${uploaderAmount}`, error.stack)
+          this.logger.error(`Failed to refill token balance for ${uploaderAddress} ${uploaderAmount}`, { stack: error.stack, alarm: true })
           return false
         }
 
@@ -76,5 +76,15 @@ export class RefillsQueue extends WorkerHost {
   @OnWorkerEvent('completed')
   onCompleted(job: Job<any, any, string>) {
     this.logger.debug(`Finished ${job.name} [${job.id}]`)
+  }
+
+  @OnWorkerEvent('failed')
+  onFailed(job: Job<any, any, string>) {
+    this.logger.error(`Failed ${job.name} [${job.id}]`, { reason: job.failedReason, alarm: true })
+  }
+
+  @OnWorkerEvent('error')
+  onError(job: Job<any, any, string>) {
+    this.logger.error(`Errored ${job.name} [${job.id}]`, { reason: job.failedReason, alarm: true })
   }
 }
