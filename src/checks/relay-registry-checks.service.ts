@@ -74,7 +74,7 @@ export class RelayRegistryChecksService {
           requestAmount: BigNumber(this.operatorMaxAOBalance).minus(balance)
         }
       } else if (balance.gt(this.operatorMaxAOBalance)) {
-        this.logger.warn(`Balance accumulation on operator registry operator: ${balance} $AO > ${this.operatorMaxAOBalance} $AO`, { alarm: true })
+        this.logger.warn(`[alarm=balance-accumulation-ao-operator-registry] Balance accumulation on operator registry operator: ${balance} $AO > ${this.operatorMaxAOBalance} $AO`)
       } else {
         this.logger.log(`operator registry operator balance: ${balance} $AO`)
       }

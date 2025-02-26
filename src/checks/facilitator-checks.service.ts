@@ -101,7 +101,7 @@ export class FacilitatorChecksService {
           address: this.operatorAddress
         }
       } else if (result > maxAmount) {
-        this.logger.warn(`Balance accumulation on facility operator: ${ethers.formatUnits(result, 18)} $ETH > ${ethers.formatUnits(minAmount, 18)} $ETH`, { alarm: true })
+        this.logger.warn(`[alarm=balance-accumulation-eth-facility] Balance accumulation on facility operator: ${ethers.formatUnits(result, 18)} $ETH > ${ethers.formatUnits(minAmount, 18)} $ETH`)
       } else {
         this.logger.debug(`Checked operator eth ${ethers.formatUnits(result, 18)} vs min: ${ethers.formatUnits(minAmount, 18)}`)
       }
@@ -142,7 +142,7 @@ export class FacilitatorChecksService {
           address: this.contractAddress
         }
       } else if (result > maxAmount) {
-        this.logger.warn(`Balance accumulation on facility token: ${ethers.formatUnits(result, 18)} $ANYONE > ${ethers.formatUnits(minAmount, 18)} $ANYONE`, { alarm: true })
+        this.logger.warn(`[alarm=balance-accumulation-anyonetokens-facility] Balance accumulation on facility token: ${ethers.formatUnits(result, 18)} $ANYONE > ${ethers.formatUnits(minAmount, 18)} $ANYONE`)
       } else {
         this.logger.log(`Checked contract tokens ${ethers.formatUnits(result, 18)} vs min: ${ethers.formatUnits(minAmount, 18)}`)
       }

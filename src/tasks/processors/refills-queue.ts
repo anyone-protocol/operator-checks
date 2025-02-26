@@ -80,6 +80,6 @@ export class RefillsQueue extends WorkerHost {
 
   @OnWorkerEvent('failed')
   onFailed(job: Job<any, any, string>) {
-    this.logger.error(`Failed ${job.name} [${job.id}]`, { reason: job.failedReason, alarm: true })
+    this.logger.error(`[alarm=failed-job-${job.name}] Failed ${job.name} [${job.id}]: ${job.failedReason}`)
   }
 }

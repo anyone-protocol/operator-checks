@@ -72,7 +72,7 @@ export class DistributionChecksService {
           requestAmount: BigNumber(this.operatorMaxAOBalance).minus(balance)
         }
       } else if (balance.gt(this.operatorMaxAOBalance)) {
-        this.logger.warn(`Balance accumulation on relay rewards operator: ${balance} $AO > ${this.operatorMaxAOBalance} $AO`, { alarm: true })
+        this.logger.warn(`[alarm=balance-accumulation-ao-relay-rewards] Balance accumulation on relay rewards operator: ${balance} $AO > ${this.operatorMaxAOBalance} $AO`)
       } else {
         this.logger.log(`Relay rewards operator balance: ${balance} $AO`)
       }

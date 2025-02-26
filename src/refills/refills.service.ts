@@ -97,7 +97,7 @@ export class RefillsService {
       
       return true
     } catch (error) {
-      this.logger.error(`Failed to send ${amount} $ETH to ${address}`, error.stack)
+      this.logger.error(`[alarm=refill-failed-eth] Failed to send ${amount} $ETH to ${address}`, error.stack)
       return false
     }
   }
@@ -118,7 +118,7 @@ export class RefillsService {
       
       return true
     } catch (error) {
-      this.logger.error(`EthSpender [${this.ethSpenderAddress}] failed to send [${amount}] tokens to [${address}]`, error.stack)
+      this.logger.error(`[alarm=refill-failed-anyonetokens] EthSpender [${this.ethSpenderAddress}] failed to send [${amount}] tokens to [${address}]`, error.stack)
       return false
     }
   }
@@ -130,8 +130,7 @@ export class RefillsService {
         const arSpenderBalance = this.arweave.ar.winstonToAr(arSpenderBalanceWinston)
         if (BigNumber(arSpenderBalance).lt(BigNumber(amount))) {
           this.logger.warn(
-            `ArSpender [${this.arSpenderAddress}] does not have enough balance [${arSpenderBalance}] $AR to send [${amount}] $AR to [${address}]`,
-            { alarm: true }
+            `[alarm=refill-failed-ar] ArSpender [${this.arSpenderAddress}] does not have enough balance [${arSpenderBalance}] $AR to send [${amount}] $AR to [${address}]`
           )
           return false
         }
@@ -152,8 +151,7 @@ export class RefillsService {
         }
 
         this.logger.warn(
-          `Failed to send [${amount}] $AR to [${address}]: ${JSON.stringify(response)}`,
-          { alarm: true }
+          `[alarm=refill-failed-ar] Failed to send [${amount}] $AR to [${address}]: ${JSON.stringify(response)}`
         )
 
         return false
@@ -172,11 +170,11 @@ export class RefillsService {
   
   async sendAoTo(address: string, amount: string): Promise<boolean> {
     try {
-      this.logger.warn('sendAoTo - Not implemented yet', { alarm: true })
+      this.logger.warn('sendAoTo - Not implemented yet')
       
       return true
     } catch (error) {
-      this.logger.error(`Failed to send [${amount}] $AO to [${address}]`, error.stack)
+      this.logger.error(`[alarm=refill-failed-ao] Failed to send [${amount}] $AO to [${address}]`, error.stack)
       return false
     }
   }
