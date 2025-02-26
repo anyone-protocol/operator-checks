@@ -36,9 +36,4 @@ export class TasksQueue extends WorkerHost {
   onFailed(job: Job<any, any, string>) {
     this.logger.error(`Failed ${job.name} [${job.id}]`, { reason: job.failedReason, alarm: true })
   }
-
-  @OnWorkerEvent('error')
-  onError(job: Job<any, any, string>) {
-    this.logger.error(`Errored ${job.name} [${job.id}]`, { reason: job.failedReason, alarm: true })
-  }
 }
