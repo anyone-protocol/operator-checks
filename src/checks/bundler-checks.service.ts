@@ -69,7 +69,7 @@ export class BundlerChecksService {
             address: this.bundlerAddress
           }
         } else if (arBalance.gt(BigNumber(this.operatorMaxBalance))) {
-          this.logger.warn(`Balance accumulation on operator [${this.bundlerAddress}]: ${arBalance} $AR > ${this.operatorMaxBalance} $AR max`)
+          this.logger.warn(`Balance accumulation on operator [${this.bundlerAddress}]: ${arBalance} $AR > ${this.operatorMaxBalance} $AR max`, { alarm: true })
         }
         return { balance: arBalance, address: this.bundlerAddress }
       } catch (error) {

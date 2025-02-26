@@ -101,14 +101,14 @@ export class FacilitatorChecksService {
           address: this.operatorAddress
         }
       } else if (result > maxAmount) {
-        this.logger.warn(`Balance accumulation on facility operator: ${ethers.formatUnits(result, 18)} $ETH > ${ethers.formatUnits(minAmount, 18)} $ETH`)
+        this.logger.warn(`Balance accumulation on facility operator: ${ethers.formatUnits(result, 18)} $ETH > ${ethers.formatUnits(minAmount, 18)} $ETH`, { alarm: true })
       } else {
         this.logger.debug(`Checked operator eth ${ethers.formatUnits(result, 18)} vs min: ${ethers.formatUnits(minAmount, 18)}`)
       }
 
       return { balance: result, address: this.operatorAddress }
     } catch (error) {
-      this.logger.error(`Exception while fetching facility operator balance`, error.stack)
+      this.logger.error(`Exception while fetching facility operator balance`, { stack: error.stack, alarm: true })
     }
 
     return { balance: BigInt(0), address: this.operatorAddress }
@@ -142,14 +142,14 @@ export class FacilitatorChecksService {
           address: this.contractAddress
         }
       } else if (result > maxAmount) {
-        this.logger.warn(`Balance accumulation on facility token: ${ethers.formatUnits(result, 18)} $ANYONE > ${ethers.formatUnits(minAmount, 18)} $ANYONE`)
+        this.logger.warn(`Balance accumulation on facility token: ${ethers.formatUnits(result, 18)} $ANYONE > ${ethers.formatUnits(minAmount, 18)} $ANYONE`, { alarm: true })
       } else {
         this.logger.log(`Checked contract tokens ${ethers.formatUnits(result, 18)} vs min: ${ethers.formatUnits(minAmount, 18)}`)
       }
 
       return { balance: result, address: this.contractAddress }
     } catch (error) {
-      this.logger.error('Exception while fetching facility token balance', error)
+      this.logger.error('Exception while fetching facility token balance', { stack: error.stack, alarm: true })
     }
 
     return { balance: BigInt(0), address: this.contractAddress }
