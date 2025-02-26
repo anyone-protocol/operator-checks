@@ -9,6 +9,7 @@ export const logz = createLogger({
       format: winston.format.combine(
         winston.format.timestamp(),
         winston.format.errors({ stack: true }),
+        winston.format.metadata({ key: 'data' }),
         winston.format.printf(({ level, message, context, timestamp, stack }) => {
           return `${timestamp}|${level}|${context}: ${message}${stack ? '\n' + stack : ''}`;
         }),
