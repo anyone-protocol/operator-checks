@@ -5,7 +5,7 @@ import BigNumber from 'bignumber.js'
 
 @Injectable()
 export class BundlerChecksService {
-  private readonly logger = new Logger('BundlerChecksService')
+  private readonly logger = new Logger(BundlerChecksService.name)
 
   private isLive?: string
 

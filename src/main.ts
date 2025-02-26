@@ -9,11 +9,10 @@ export const logz = createLogger({
       format: winston.format.combine(
         winston.format.timestamp(),
         winston.format.errors({ stack: true }),
-        winston.format.metadata({ key: 'data' }),
         winston.format.printf(({ level, message, context, timestamp, stack }) => {
           return `${timestamp}|${level}|${context}: ${message}${stack ? '\n' + stack : ''}`;
         }),
-        winston.format.json()
+        winston.format.metadata({ key: 'data' })
       ),
       handleExceptions: true
     }),
@@ -28,9 +27,8 @@ async function bootstrap() {
   })
 
   const port = process.env.PORT || 3000
-  logz.info(`Listening on ${port}`)
-
   await app.listen(port)
+  logz.info(`Listening on ${port}`, { context: 'main' })
 }
 
 bootstrap()
