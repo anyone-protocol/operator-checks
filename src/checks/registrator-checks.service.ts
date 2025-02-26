@@ -67,7 +67,7 @@ export class RegistratorChecksService {
 
       return { balance: result }
     } catch (error) {
-      this.logger.error('Exception while fetching registrator token balance', { stack: error.stack, alarm: true })
+      this.logger.error('Exception while fetching registrator token balance', error.stack)
     }
 
     return { balance: BigInt(0) }

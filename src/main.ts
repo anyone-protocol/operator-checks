@@ -9,8 +9,9 @@ export const logz = createLogger({
       format: winston.format.combine(
         winston.format.timestamp(),
         winston.format.errors({ stack: true }),
-        winston.format.printf(({ level, message, context, timestamp, stack, ...meta }) => {
-          return `${timestamp}|${level}|${context}: ${message}${stack ? '\n' + stack : ''}${meta ? '\n' + JSON.stringify(meta) : ''}`;
+        winston.format.printf(({ level, message, context, timestamp, stack }) => {
+          const _stack = Array.isArray(stack) && stack[0] ? '\n'+stack.join('\n') : '';
+          return `${timestamp}|${level}|${context}: ${message}${_stack}`;
         })
       ),
       handleExceptions: true

@@ -29,7 +29,7 @@ export class RefillsQueue extends WorkerHost {
 
           return outcome
         } catch (error) {
-          this.logger.error(`Failed to refill eth balance for ${ethReceiver} ${ethAmount}`, { stack: error.stack, alarm: true })
+          this.logger.error(`Failed to refill eth balance for ${ethReceiver} ${ethAmount}`, error.stack)
           return false
         }
 
@@ -41,7 +41,7 @@ export class RefillsQueue extends WorkerHost {
 
           return outcome
         } catch (error) {
-          this.logger.error(`Failed to refill token balance for ${tokenReceiver} ${tokenAmount}`, { stack: error.stack, alarm: true })
+          this.logger.error(`Failed to refill token balance for ${tokenReceiver} ${tokenAmount}`, error.stack)
           return false
         }
 
@@ -52,7 +52,7 @@ export class RefillsQueue extends WorkerHost {
 
           return outcome
         } catch (error) {
-          this.logger.error(`Failed to refill token balance for ${arReceiver} ${arAmount}`, { stack: error.stack, alarm: true })
+          this.logger.error(`Failed to refill token balance for ${arReceiver} ${arAmount}`, error.stack)
           return false
         }
 
@@ -63,7 +63,7 @@ export class RefillsQueue extends WorkerHost {
 
           return outcome
         } catch (error) {
-          this.logger.error(`Failed to refill token balance for ${uploaderAddress} ${uploaderAmount}`, { stack: error.stack, alarm: true })
+          this.logger.error(`Failed to refill token balance for ${uploaderAddress} ${uploaderAmount}`, error.stack)
           return false
         }
 

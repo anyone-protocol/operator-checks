@@ -28,7 +28,7 @@ export class DistributionChecksService {
 
     const operatorKey = this.config.get<string>('DISTRIBUTION_OPERATOR_KEY', { infer: true })
     if (!operatorKey) {
-      this.logger.error('Missing DISTRIBUTION_OPERATOR_KEY. Skipping relay rewards operator $AO checks!')
+      this.logger.error(`Missing DISTRIBUTION_OPERATOR_KEY. Skipping relay rewards operator $AO checks!`)
       return
     }
     const aoTokenProcessId = this.config.get<string>('AO_TOKEN_PROCESS_ID', { infer: true })

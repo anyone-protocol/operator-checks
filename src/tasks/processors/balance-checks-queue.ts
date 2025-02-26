@@ -63,7 +63,7 @@ export class BalanceChecksQueue extends WorkerHost {
             },
           ]
         } catch (error) {
-          this.logger.error('Failed checking relay registry', { stack: error.stack, alarm: true })
+          this.logger.error('Failed checking relay registry', error.stack)
           return []
         }
 
@@ -85,7 +85,7 @@ export class BalanceChecksQueue extends WorkerHost {
             },
           ]
         } catch (error) {
-          this.logger.error('Failed checking distribution', { stack: error.stack, alarm: true })
+          this.logger.error('Failed checking distribution', error.stack)
           return []
         }
 
@@ -111,7 +111,7 @@ export class BalanceChecksQueue extends WorkerHost {
             },
           ]
         } catch (error) {
-          this.logger.error('Failed checking bundler', { stack: error.stack, alarm: true })
+          this.logger.error('Failed checking bundler', error.stack)
           return []
         }
 
@@ -144,7 +144,7 @@ export class BalanceChecksQueue extends WorkerHost {
             },
           ]
         } catch (error) {
-          this.logger.error('Failed checking facilitator', { stack: error.stack, alarm: true })
+          this.logger.error('Failed checking facilitator', error.stack)
           return []
         }
 
@@ -159,7 +159,7 @@ export class BalanceChecksQueue extends WorkerHost {
             address: tokensCheck.address
           }]
         } catch (error) {
-          this.logger.error('Failed checking registrator', { stack: error.stack, alarm: true })
+          this.logger.error('Failed checking registrator', error.stack)
           return []
         }
 

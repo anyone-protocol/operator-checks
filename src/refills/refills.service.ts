@@ -40,6 +40,9 @@ export class RefillsService {
     this.tokenAddress = this.config.get<string>('TOKEN_CONTRACT_ADDRESS', { infer: true })
     const ethSpenderKey = this.config.get<string>('ETH_SPENDER_KEY', { infer: true })
     this.provider = new ethers.JsonRpcProvider(this.jsonRpc)
+    if (!ethSpenderKey) {
+      throw new Error('Missing ETH_SPENDER_KEY')
+    }
     this.ethSpender = new ethers.Wallet(
       ethSpenderKey!,
       this.provider
@@ -94,7 +97,7 @@ export class RefillsService {
       
       return true
     } catch (error) {
-      this.logger.error(`Failed to send ${amount} $ETH to ${address}`, { stack: error.stack, alarm: true })
+      this.logger.error(`Failed to send ${amount} $ETH to ${address}`, error.stack)
       return false
     }
   }
@@ -115,7 +118,7 @@ export class RefillsService {
       
       return true
     } catch (error) {
-      this.logger.error(`EthSpender [${this.ethSpenderAddress}] failed to send [${amount}] tokens to [${address}]`, { stack: error.stack, alarm: true })
+      this.logger.error(`EthSpender [${this.ethSpenderAddress}] failed to send [${amount}] tokens to [${address}]`, error.stack)
       return false
     }
   }
@@ -162,7 +165,7 @@ export class RefillsService {
       
       return true
     } catch (error) {
-      this.logger.error(`Failed to send [${amount}] $AR to [${address}]`, { stack: error.stack, alarm: true })
+      this.logger.error(`Failed to send [${amount}] $AR to [${address}]`, error.stack)
       return false
     }
   }
@@ -173,7 +176,7 @@ export class RefillsService {
       
       return true
     } catch (error) {
-      this.logger.error(`Failed to send [${amount}] $AO to [${address}]`, { stack: error.stack, alarm: true })
+      this.logger.error(`Failed to send [${amount}] $AO to [${address}]`, error.stack)
       return false
     }
   }

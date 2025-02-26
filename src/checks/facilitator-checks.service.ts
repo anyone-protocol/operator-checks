@@ -108,7 +108,7 @@ export class FacilitatorChecksService {
 
       return { balance: result, address: this.operatorAddress }
     } catch (error) {
-      this.logger.error(`Exception while fetching facility operator balance`, { stack: error.stack, alarm: true })
+      this.logger.error(`Exception while fetching facility operator balance`, error.stack)
     }
 
     return { balance: BigInt(0), address: this.operatorAddress }
@@ -149,7 +149,7 @@ export class FacilitatorChecksService {
 
       return { balance: result, address: this.contractAddress }
     } catch (error) {
-      this.logger.error('Exception while fetching facility token balance', { stack: error.stack, alarm: true })
+      this.logger.error('Exception while fetching facility token balance', error.stack)
     }
 
     return { balance: BigInt(0), address: this.contractAddress }
