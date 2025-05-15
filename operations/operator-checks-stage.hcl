@@ -56,6 +56,12 @@ job "operator-checks-stage" {
         role = "controller"
       }
 
+      identity {
+        name = "vault_default"
+        aud  = ["any1-infra"]
+        ttl  = "1h"
+      }
+      
       template {
         data = <<-EOH
           {{with secret "kv/stage-protocol/operator-checks-stage"}}
