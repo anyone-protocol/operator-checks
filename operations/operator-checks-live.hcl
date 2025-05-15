@@ -61,7 +61,7 @@ job "operator-checks-live" {
 
       template {
         data = <<-EOH
-          {{with secret "kv/stage-protocol/operator-checks-stage"}}
+          {{with secret "kv/live-protocol/operator-checks-live"}}
             RELAY_REGISTRY_OPERATOR_KEY="{{.Data.data.RELAY_REGISTRY_CONTROLLER_KEY}}"
             DISTRIBUTION_OPERATOR_KEY="{{.Data.data.DISTRIBUTION_OPERATOR_KEY_DEPRECATED}}"
             FACILITY_OPERATOR_KEY="{{.Data.data.FACILITY_OPERATOR_KEY_DEPRECATED}}"
@@ -81,13 +81,13 @@ job "operator-checks-live" {
 
       template {
         data = <<-EOH
-          RELAY_REGISTRY_CONTRACT_TXID="[[ consulKey "smart-contracts/stage/relay-registry-address" ]]"
-          DISTRIBUTION_CONTRACT_TXID="[[ consulKey "smart-contracts/stage/distribution-address" ]]"
-          FACILITY_CONTRACT_ADDRESS="[[ consulKey "facilitator/sepolia/stage/address" ]]"
-          REGISTRATOR_CONTRACT_ADDRESS="[[ consulKey "registrator/sepolia/stage/address" ]]"
-          TOKEN_CONTRACT_ADDRESS="[[ consulKey "ator-token/sepolia/stage/address" ]]"
-          {{- range service "validator-stage-mongo" }}
-            MONGO_URI="mongodb://{{ .Address }}:{{ .Port }}/operator-checks-stage"
+          RELAY_REGISTRY_CONTRACT_TXID="[[ consulKey "smart-contracts/live/relay-registry-address" ]]"
+          DISTRIBUTION_CONTRACT_TXID="[[ consulKey "smart-contracts/live/distribution-address" ]]"
+          FACILITY_CONTRACT_ADDRESS="[[ consulKey "facilitator/sepolia/live/address" ]]"
+          REGISTRATOR_CONTRACT_ADDRESS="[[ consulKey "registrator/sepolia/live/address" ]]"
+          TOKEN_CONTRACT_ADDRESS="[[ consulKey "ator-token/sepolia/live/address" ]]"
+          {{- range service "validator-live-mongo" }}
+            MONGO_URI="mongodb://{{ .Address }}:{{ .Port }}/operator-checks-live"
           {{- end }}
           {{- range service "ario-any1-envoy" }}
             ARWEAVE_GATEWAY_PROTOCOL="http"
