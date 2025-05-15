@@ -53,7 +53,7 @@ job "operator-checks-stage" {
       }
 
       vault {
-        role = "controller"
+        role = "any1-nomad-workloads-controller"
       }
 
       identity {
@@ -61,7 +61,7 @@ job "operator-checks-stage" {
         aud  = ["any1-infra"]
         ttl  = "1h"
       }
-      
+
       template {
         data = <<-EOH
           {{with secret "kv/stage-protocol/operator-checks-stage"}}
