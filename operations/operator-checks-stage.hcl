@@ -71,26 +71,28 @@ job "operator-checks-stage" {
             AR_SPENDER_KEY={{ base64Decode .Data.data.AR_SPENDER_KEY_BASE64 | toJSON }}
             BUNDLER_OPERATOR_JWK={{ base64Decode .Data.data.BUNDLER_KEY_BASE64 | toJSON }}
           {{end}}
-          {{- range service "validator-stage-mongo" }}
-            MONGO_URI="mongodb://{{ .Address }}:{{ .Port }}/operator-checks-stage"
-          {{- end }}
-          {{with secret "kv/operator-checks/stage"}}
-          {{end}}
+        EOH
+        destination = "secrets/keys.env"
+        env         = true
+      }
+
+      template {
+        data = <<-EOH
           RELAY_REGISTRY_CONTRACT_TXID="[[ consulKey "smart-contracts/stage/relay-registry-address" ]]"
           DISTRIBUTION_CONTRACT_TXID="[[ consulKey "smart-contracts/stage/distribution-address" ]]"
           FACILITY_CONTRACT_ADDRESS="[[ consulKey "facilitator/sepolia/stage/address" ]]"
           REGISTRATOR_CONTRACT_ADDRESS="[[ consulKey "registrator/sepolia/stage/address" ]]"
           TOKEN_CONTRACT_ADDRESS="[[ consulKey "ator-token/sepolia/stage/address" ]]"
-          {{ with secret `kv/ario-bundler` }}
-            BUNDLER_OPERATOR_JWK={{ base64Decode .Data.data.BUNDLER_KEY_BASE64 | toJSON }}
-          {{end}}
+          {{- range service "validator-stage-mongo" }}
+            MONGO_URI="mongodb://{{ .Address }}:{{ .Port }}/operator-checks-stage"
+          {{- end }}
           {{- range service "ario-any1-envoy" }}
             ARWEAVE_GATEWAY_PROTOCOL="http"
             ARWEAVE_GATEWAY_HOST="{{ .Address }}"
             ARWEAVE_GATEWAY_PORT={{ .Port }}
           {{ end -}}
         EOH
-        destination = "secrets/file.env"
+        destination = "local/config.env"
         env         = true
       }
 
