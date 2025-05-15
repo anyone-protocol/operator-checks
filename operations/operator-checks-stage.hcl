@@ -1,6 +1,7 @@
 job "operator-checks-stage" {
   datacenters = ["ator-fin"]
   type = "service"
+  namespace = "stage-protocol"
 
   group "operator-checks-stage-group" {
     
@@ -48,31 +49,32 @@ job "operator-checks-stage" {
         RELAY_REWARDS_OPERATOR_MIN_AO_BALANCE=100
         RELAY_REWARDS_OPERATOR_MAX_AO_BALANCE=1000
         AO_TOKEN_PROCESS_ID="Pi-WmAQp2-mh-oWH9lWpz5EthlUDj_W0IusAv-RXhRk"
+        BUNDLER_NODE="https://node2.irys.xyz"
       }
 
       vault {
-        policies = ["valid-ator-stage", "operator-checks-stage", "ario-bundler-any1"]
+        role = "controller"
       }
 
       template {
         data = <<-EOH
-          {{with secret "kv/valid-ator/stage"}}
-            RELAY_REGISTRY_OPERATOR_KEY="{{.Data.data.RELAY_REGISTRY_OPERATOR_KEY}}"
-            DISTRIBUTION_OPERATOR_KEY="{{.Data.data.DISTRIBUTION_OPERATOR_KEY}}"
-            FACILITY_OPERATOR_KEY="{{.Data.data.FACILITY_OPERATOR_KEY}}"
-            REGISTRATOR_OPERATOR_KEY="{{.Data.data.REGISTRATOR_OPERATOR_KEY}}"
+          {{with secret "kv/stage-protocol/operator-checks-stage"}}
+            RELAY_REGISTRY_OPERATOR_KEY="{{.Data.data.RELAY_REGISTRY_CONTROLLER_KEY}}"
+            DISTRIBUTION_OPERATOR_KEY="{{.Data.data.DISTRIBUTION_OPERATOR_KEY_DEPRECATED}}"
+            FACILITY_OPERATOR_KEY="{{.Data.data.FACILITY_OPERATOR_KEY_DEPRECATED}}"
+            REGISTRATOR_OPERATOR_KEY="{{.Data.data.REGISTRATOR_OPERATOR_KEY_DEPRECATED}}"
             JSON_RPC="{{.Data.data.JSON_RPC}}"
             INFURA_NETWORK="{{.Data.data.INFURA_NETWORK}}"
             INFURA_WS_URL="{{.Data.data.INFURA_WS_URL}}"
-            BUNDLER_NETWORK="{{.Data.data.IRYS_NETWORK}}"
-            BUNDLER_NODE="https://node2.irys.xyz"
+            BUNDLER_NETWORK="{{.Data.data.BUNDLER_NETWORK}}"
+            ETH_SPENDER_KEY="{{.Data.data.ETH_SPENDER_KEY}}"
+            AR_SPENDER_KEY={{ base64Decode .Data.data.AR_SPENDER_KEY_BASE64 | toJSON }}
+            BUNDLER_OPERATOR_JWK={{ base64Decode .Data.data.BUNDLER_KEY_BASE64 | toJSON }}
           {{end}}
           {{- range service "validator-stage-mongo" }}
             MONGO_URI="mongodb://{{ .Address }}:{{ .Port }}/operator-checks-stage"
           {{- end }}
           {{with secret "kv/operator-checks/stage"}}
-            ETH_SPENDER_KEY="{{.Data.data.ETH_SPENDER_KEY}}"
-            AR_SPENDER_KEY={{ base64Decode .Data.data.AR_SPENDER_KEY_BASE64 | toJSON }}
           {{end}}
           RELAY_REGISTRY_CONTRACT_TXID="[[ consulKey "smart-contracts/stage/relay-registry-address" ]]"
           DISTRIBUTION_CONTRACT_TXID="[[ consulKey "smart-contracts/stage/distribution-address" ]]"
