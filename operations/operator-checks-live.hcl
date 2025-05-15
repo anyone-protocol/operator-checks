@@ -1,6 +1,7 @@
 job "operator-checks-live" {
   datacenters = ["ator-fin"]
   type = "service"
+  namespace = "live-protocol"
 
   group "operator-checks-live-group" {
     
@@ -45,47 +46,56 @@ job "operator-checks-live" {
         RELAY_REWARDS_OPERATOR_MIN_AO_BALANCE=100
         RELAY_REWARDS_OPERATOR_MAX_AO_BALANCE=1000
         AO_TOKEN_PROCESS_ID="Pi-WmAQp2-mh-oWH9lWpz5EthlUDj_W0IusAv-RXhRk"
+        BUNDLER_NODE="https://node2.irys.xyz"
       }
 
       vault {
-        policies = ["valid-ator-live", "operator-checks-live", "ario-bundler-any1"]
+        role = "any1-nomad-workloads-controller"
+      }
+
+      identity {
+        name = "vault_default"
+        aud  = ["any1-infra"]
+        ttl  = "1h"
       }
 
       template {
         data = <<-EOH
-          {{with secret "kv/valid-ator/live"}}
-            RELAY_REGISTRY_OPERATOR_KEY="{{.Data.data.RELAY_REGISTRY_OPERATOR_KEY}}"
-            DISTRIBUTION_OPERATOR_KEY="{{.Data.data.DISTRIBUTION_OPERATOR_KEY}}"
-            FACILITY_OPERATOR_KEY="{{.Data.data.FACILITY_OPERATOR_KEY}}"
-            REGISTRATOR_OPERATOR_KEY="{{.Data.data.REGISTRATOR_OPERATOR_KEY}}"
+          {{with secret "kv/stage-protocol/operator-checks-stage"}}
+            RELAY_REGISTRY_OPERATOR_KEY="{{.Data.data.RELAY_REGISTRY_CONTROLLER_KEY}}"
+            DISTRIBUTION_OPERATOR_KEY="{{.Data.data.DISTRIBUTION_OPERATOR_KEY_DEPRECATED}}"
+            FACILITY_OPERATOR_KEY="{{.Data.data.FACILITY_OPERATOR_KEY_DEPRECATED}}"
+            REGISTRATOR_OPERATOR_KEY="{{.Data.data.REGISTRATOR_OPERATOR_KEY_DEPRECATED}}"
             JSON_RPC="{{.Data.data.JSON_RPC}}"
             INFURA_NETWORK="{{.Data.data.INFURA_NETWORK}}"
             INFURA_WS_URL="{{.Data.data.INFURA_WS_URL}}"
-            BUNDLER_NETWORK="{{.Data.data.IRYS_NETWORK}}"
-            BUNDLER_NODE="https://node2.irys.xyz"
-          {{end}}
-          {{- range service "validator-live-mongo" }}
-            MONGO_URI="mongodb://{{ .Address }}:{{ .Port }}/operator-checks-live"
-          {{- end }}
-          {{with secret "kv/operator-checks/live"}}
+            BUNDLER_NETWORK="{{.Data.data.BUNDLER_NETWORK}}"
             ETH_SPENDER_KEY="{{.Data.data.ETH_SPENDER_KEY}}"
             AR_SPENDER_KEY={{ base64Decode .Data.data.AR_SPENDER_KEY_BASE64 | toJSON }}
-          {{end}}
-          RELAY_REGISTRY_CONTRACT_TXID="[[ consulKey "smart-contracts/live/relay-registry-address" ]]"
-          DISTRIBUTION_CONTRACT_TXID="[[ consulKey "smart-contracts/live/distribution-address" ]]"
-          FACILITY_CONTRACT_ADDRESS="[[ consulKey "facilitator/sepolia/live/address" ]]"
-          REGISTRATOR_CONTRACT_ADDRESS="[[ consulKey "registrator/sepolia/live/address" ]]"
-          TOKEN_CONTRACT_ADDRESS="[[ consulKey "ator-token/sepolia/live/address" ]]"
-          {{ with secret `kv/ario-bundler` }}
             BUNDLER_OPERATOR_JWK={{ base64Decode .Data.data.BUNDLER_KEY_BASE64 | toJSON }}
           {{end}}
+        EOH
+        destination = "secrets/keys.env"
+        env         = true
+      }
+
+      template {
+        data = <<-EOH
+          RELAY_REGISTRY_CONTRACT_TXID="[[ consulKey "smart-contracts/stage/relay-registry-address" ]]"
+          DISTRIBUTION_CONTRACT_TXID="[[ consulKey "smart-contracts/stage/distribution-address" ]]"
+          FACILITY_CONTRACT_ADDRESS="[[ consulKey "facilitator/sepolia/stage/address" ]]"
+          REGISTRATOR_CONTRACT_ADDRESS="[[ consulKey "registrator/sepolia/stage/address" ]]"
+          TOKEN_CONTRACT_ADDRESS="[[ consulKey "ator-token/sepolia/stage/address" ]]"
+          {{- range service "validator-stage-mongo" }}
+            MONGO_URI="mongodb://{{ .Address }}:{{ .Port }}/operator-checks-stage"
+          {{- end }}
           {{- range service "ario-any1-envoy" }}
             ARWEAVE_GATEWAY_PROTOCOL="http"
             ARWEAVE_GATEWAY_HOST="{{ .Address }}"
             ARWEAVE_GATEWAY_PORT={{ .Port }}
           {{ end -}}
         EOH
-        destination = "secrets/file.env"
+        destination = "local/config.env"
         env         = true
       }
 
