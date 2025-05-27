@@ -21,9 +21,6 @@ job "operator-checks-stage" {
       port "redis" {
         host_network = "wireguard"
       }
-      port "http" {
-        host_network = "wireguard"
-      }
     }
 
     task "operator-checks-stage-service" {
