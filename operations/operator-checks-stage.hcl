@@ -3,6 +3,11 @@ job "operator-checks-stage" {
   type = "service"
   namespace = "stage-protocol"
 
+  constraint {
+    attribute = "${meta.pool}"
+    value = "stage"
+  }
+
   group "operator-checks-stage-group" {
     
     count = 1

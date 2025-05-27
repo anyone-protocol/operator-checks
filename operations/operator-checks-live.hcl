@@ -3,6 +3,11 @@ job "operator-checks-live" {
   type = "service"
   namespace = "live-protocol"
 
+  constraint {
+    attribute = "${meta.pool}"
+    value = "live-protocol"
+  }
+
   group "operator-checks-live-group" {
     
     count = 1
