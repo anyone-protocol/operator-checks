@@ -4,12 +4,11 @@ import { Job } from 'bullmq'
 import { BalancesService } from 'src/checks/balances.service'
 import { DistributionChecksService } from 'src/checks/distribution-checks.service'
 import { FacilitatorChecksService } from 'src/checks/facilitator-checks.service'
-import { RegistratorChecksService } from 'src/checks/registrator-checks.service'
 import { RelayRegistryChecksService } from 'src/checks/relay-registry-checks.service'
 import { BalancesData } from 'src/checks/schemas/balances-data'
 import { TasksService } from '../tasks.service'
-import { ConfigService } from '@nestjs/config'
 import { BundlerChecksService } from 'src/checks/bundler-checks.service'
+import { HodlerChecksService } from 'src/checks/hodler-checks.service'
 
 @Processor('operator-checks-balance-checks-queue')
 export class BalanceChecksQueue extends WorkerHost {
@@ -18,27 +17,20 @@ export class BalanceChecksQueue extends WorkerHost {
   public static readonly JOB_CHECK_RELAY_REGISTRY = 'check-relay-registry'
   public static readonly JOB_CHECK_DISTRIBUTION = 'check-distribution'
   public static readonly JOB_CHECK_FACILITATOR = 'check-facilitator'
-  public static readonly JOB_CHECK_REGISTRATOR = 'check-registrator'
   public static readonly JOB_CHECK_BUNDLER = 'check-bundler'
   public static readonly JOB_REVIEW_BALANCE_CHECKS = 'review-balance-checks'
-
-  private facilityContractAddress?: string
+  public static readonly JOB_CHECK_HODLER = 'check-hodler'
 
   constructor(
     private readonly balances: BalancesService,
     private readonly distributionChecks: DistributionChecksService,
     private readonly facilitatorChecks: FacilitatorChecksService,
-    private readonly registratorChecks: RegistratorChecksService,
     private readonly relayRegistryChecks: RelayRegistryChecksService,
     private readonly bundlerChecks: BundlerChecksService,
-    private readonly tasks: TasksService,
-    private readonly config: ConfigService<{
-      FACILITY_CONTRACT_ADDRESS: string
-    }>
+    private readonly hodlerChecks: HodlerChecksService,
+    private readonly tasks: TasksService
   ) {
     super()
-
-    this.facilityContractAddress = this.config.get<string>('FACILITY_CONTRACT_ADDRESS', { infer: true })
   }
 
   async process(job: Job<any, any, string>): Promise<BalancesData[]> {
@@ -148,18 +140,36 @@ export class BalanceChecksQueue extends WorkerHost {
           return []
         }
 
-      case BalanceChecksQueue.JOB_CHECK_REGISTRATOR:
+      case BalanceChecksQueue.JOB_CHECK_HODLER:
         try {
-          const tokensCheck = await this.registratorChecks.getContractTokens()
+          const ethCheck = await this.hodlerChecks.getOperatorEth()
+          const tokensCheck = await this.hodlerChecks.getContractTokens()
 
-          return [{
-            stamp: job.data,
-            kind: 'registrator-contract-tokens',
-            amount: tokensCheck.balance.toString(),
-            address: tokensCheck.address
-          }]
+          if (tokensCheck.requestAmount && tokensCheck.address) {
+            await this.tasks.requestRefillToken(
+              tokensCheck.address,
+              tokensCheck.requestAmount
+            )
+          }
+
+          return [
+            {
+              stamp: job.data,
+              kind: 'hodler-operator-eth',
+              amount: ethCheck.balance.toString(),
+              requestAmount: ethCheck.requestAmount?.toString() || undefined,
+              address: ethCheck.address
+            },
+            {
+              stamp: job.data,
+              kind: 'hodler-contract-tokens',
+              amount: tokensCheck.balance.toString(),
+              requestAmount: tokensCheck.requestAmount?.toString() || undefined,
+              address: tokensCheck.address
+            },
+          ]
         } catch (error) {
-          this.logger.error('Failed checking registrator', error.stack)
+          this.logger.error('Failed checking hodler', error.stack)
           return []
         }
 

@@ -44,6 +44,10 @@ job "operator-checks-stage" {
         FACILITY_OPERATOR_MAX_ETH=5
         FACILITY_CONTRACT_MIN_TOKEN=10000
         FACILITY_CONTRACT_MAX_TOKEN=100000
+        HODLER_OPERATOR_MIN_ETH=1
+        HODLER_OPERATOR_MAX_ETH=5
+        HODLER_CONTRACT_MIN_TOKEN=10000
+        HODLER_CONTRACT_MAX_TOKEN=100000
         BUNDLER_MIN_AR=1
         BUNDLER_MAX_AR=2
         OPERATOR_REGISTRY_OPERATOR_MIN_AO_BALANCE=100
@@ -70,6 +74,7 @@ job "operator-checks-stage" {
             RELAY_REGISTRY_OPERATOR_KEY="{{.Data.data.RELAY_REGISTRY_CONTROLLER_KEY}}"
             DISTRIBUTION_OPERATOR_KEY="{{.Data.data.DISTRIBUTION_OPERATOR_KEY_DEPRECATED}}"
             FACILITY_OPERATOR_KEY="{{.Data.data.FACILITY_OPERATOR_KEY_DEPRECATED}}"
+            HODLER_OPERATOR_KEY="{{ .Data.data.HODLER_OPERATOR_KEY_DEPRECATED }}"
             REGISTRATOR_OPERATOR_KEY="{{.Data.data.REGISTRATOR_OPERATOR_KEY_DEPRECATED}}"
             JSON_RPC="{{.Data.data.JSON_RPC}}"
             INFURA_NETWORK="{{.Data.data.INFURA_NETWORK}}"
@@ -89,6 +94,7 @@ job "operator-checks-stage" {
           RELAY_REGISTRY_CONTRACT_TXID="[[ consulKey "smart-contracts/stage/relay-registry-address" ]]"
           DISTRIBUTION_CONTRACT_TXID="[[ consulKey "smart-contracts/stage/distribution-address" ]]"
           FACILITY_CONTRACT_ADDRESS="[[ consulKey "facilitator/sepolia/stage/address" ]]"
+          HODLER_CONTRACT_ADDRESS="[[ consulKey "hodler/sepolia/stage/address" ]]"
           REGISTRATOR_CONTRACT_ADDRESS="[[ consulKey "registrator/sepolia/stage/address" ]]"
           TOKEN_CONTRACT_ADDRESS="[[ consulKey "ator-token/sepolia/stage/address" ]]"
           {{- range service "validator-stage-mongo" }}
