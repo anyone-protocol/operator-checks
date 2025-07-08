@@ -144,11 +144,19 @@ export class BalanceChecksQueue extends WorkerHost {
         try {
           const ethCheck = await this.hodlerChecks.getOperatorEth()
           const tokensCheck = await this.hodlerChecks.getContractTokens()
+          const rewardsPoolCheck = await this.hodlerChecks.getRewardsPoolTokens()
 
           if (tokensCheck.requestAmount && tokensCheck.address) {
             await this.tasks.requestRefillToken(
               tokensCheck.address,
               tokensCheck.requestAmount
+            )
+          }
+
+          if (rewardsPoolCheck.requestAmount && rewardsPoolCheck.address) {
+            await this.tasks.requestRefillToken(
+              rewardsPoolCheck.address,
+              rewardsPoolCheck.requestAmount
             )
           }
 

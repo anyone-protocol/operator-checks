@@ -13,6 +13,10 @@ export class HodlerChecksService {
   private contractMinToken: number
   private contractMaxToken: number
 
+  private rewardsPoolAddress: string | undefined
+  private rewardsPoolMinToken: number
+  private rewardsPoolMaxToken: number
+
   private operator: ethers.Wallet
   private operatorAddress: string
   private operatorMinEth: number
@@ -35,6 +39,9 @@ export class HodlerChecksService {
       HODLER_OPERATOR_MAX_ETH: number
       HODLER_CONTRACT_MIN_TOKEN: number
       HODLER_CONTRACT_MAX_TOKEN: number
+      REWARDS_POOL_ADDRESS: string
+      REWARDS_POOL_MIN_TOKEN: number
+      REWARDS_POOL_MAX_TOKEN: number
     }>
   ) {
     this.isLive = this.config.get<string>('IS_LIVE', { infer: true })
@@ -44,6 +51,9 @@ export class HodlerChecksService {
     this.operatorMaxEth = this.config.get<number>('HODLER_OPERATOR_MAX_ETH', { infer: true })
     this.contractMinToken = this.config.get<number>('HODLER_CONTRACT_MIN_TOKEN', { infer: true })
     this.contractMaxToken = this.config.get<number>('HODLER_CONTRACT_MAX_TOKEN', { infer: true })
+    this.rewardsPoolAddress = this.config.get<string>('REWARDS_POOL_ADDRESS', { infer: true })
+    this.rewardsPoolMinToken = this.config.get<number>('REWARDS_POOL_MIN_TOKEN', { infer: true })
+    this.rewardsPoolMaxToken = this.config.get<number>('REWARDS_POOL_MAX_TOKEN', { infer: true })
 
     this.jsonRpc = this.config.get<string>('JSON_RPC', { infer: true })
     if (this.jsonRpc == undefined) {
@@ -153,5 +163,46 @@ export class HodlerChecksService {
     }
 
     return { balance: BigInt(0), address: this.contractAddress }
+  }
+
+  async getRewardsPoolTokens(): Promise<{
+    balance: bigint
+    requestAmount?: bigint
+    address?: string
+  }> {
+    if (!this.rewardsPoolAddress) {
+      this.logger.error('Rewards pool address not provided. Unable to check rewards pool token balance.')
+      return { balance: BigInt(0), address: this.rewardsPoolAddress }
+    }
+
+    try {
+      const result = await this.contract.balanceOf(this.rewardsPoolAddress!)
+      if (!result) {
+        this.logger.error(`Failed to fetch rewards pool token balance`)
+        return { balance: BigInt(0), address: this.rewardsPoolAddress }
+      }
+
+      const minAmount = ethers.parseUnits(this.rewardsPoolMinToken.toString(), 18)
+      const maxAmount = ethers.parseUnits(this.rewardsPoolMaxToken.toString(), 18)
+      if (result < minAmount) {
+        this.logger.warn(`Balance depletion on rewards pool token: ${ethers.formatUnits(result, 18)} $ANYONE < ${ethers.formatUnits(minAmount, 18)} $ANYONE`)
+
+        return {
+          balance: result,
+          requestAmount: maxAmount - result,
+          address: this.rewardsPoolAddress
+        }
+      } else if (result > maxAmount) {
+        this.logger.warn(`[alarm=balance-accumulation-anyonetokens-rewards-pool] Balance accumulation on rewards pool token: ${ethers.formatUnits(result, 18)} $ANYONE > ${ethers.formatUnits(minAmount, 18)} $ANYONE`)
+      } else {
+        this.logger.log(`Checked rewards pool tokens ${ethers.formatUnits(result, 18)} vs min: ${ethers.formatUnits(minAmount, 18)}`)
+      }
+
+      return { balance: result, address: this.rewardsPoolAddress }
+    } catch (error) {
+      this.logger.error('Exception while fetching rewards pool token balance', error.stack)
+    }
+
+    return { balance: BigInt(0), address: this.rewardsPoolAddress }
   }
 }
