@@ -94,12 +94,12 @@ job "operator-checks-stage" {
 
       template {
         data = <<-EOH
-        RELAY_REGISTRY_CONTRACT_TXID="[[ consulKey "smart-contracts/stage/relay-registry-address" ]]"
-        DISTRIBUTION_CONTRACT_TXID="[[ consulKey "smart-contracts/stage/distribution-address" ]]"
-        FACILITY_CONTRACT_ADDRESS="[[ consulKey "facilitator/sepolia/stage/address" ]]"
-        HODLER_CONTRACT_ADDRESS="[[ consulKey "hodler/sepolia/stage/address" ]]"
-        REGISTRATOR_CONTRACT_ADDRESS="[[ consulKey "registrator/sepolia/stage/address" ]]"
-        TOKEN_CONTRACT_ADDRESS="[[ consulKey "ator-token/sepolia/stage/address" ]]"
+        RELAY_REGISTRY_CONTRACT_TXID="{{ key "smart-contracts/stage/relay-registry-address" }}"
+        DISTRIBUTION_CONTRACT_TXID="{{ key "smart-contracts/stage/distribution-address" }}"
+        FACILITY_CONTRACT_ADDRESS="{{ key "facilitator/sepolia/stage/address" }}"
+        HODLER_CONTRACT_ADDRESS="{{ key "hodler/sepolia/stage/address" }}"
+        REGISTRATOR_CONTRACT_ADDRESS="{{ key "registrator/sepolia/stage/address" }}"
+        TOKEN_CONTRACT_ADDRESS="{{ key "ator-token/sepolia/stage/address" }}"
         {{- range service "validator-stage-mongo" }}
         MONGO_URI="mongodb://{{ .Address }}:{{ .Port }}/operator-checks-stage"
         {{- end }}

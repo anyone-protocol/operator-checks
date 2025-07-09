@@ -86,11 +86,11 @@ job "operator-checks-live" {
 
       template {
         data = <<-EOH
-          RELAY_REGISTRY_CONTRACT_TXID="[[ consulKey "smart-contracts/live/relay-registry-address" ]]"
-          DISTRIBUTION_CONTRACT_TXID="[[ consulKey "smart-contracts/live/distribution-address" ]]"
-          FACILITY_CONTRACT_ADDRESS="[[ consulKey "facilitator/sepolia/live/address" ]]"
-          REGISTRATOR_CONTRACT_ADDRESS="[[ consulKey "registrator/sepolia/live/address" ]]"
-          TOKEN_CONTRACT_ADDRESS="[[ consulKey "ator-token/sepolia/live/address" ]]"
+          RELAY_REGISTRY_CONTRACT_TXID="{{ key "smart-contracts/live/relay-registry-address" }}"
+          DISTRIBUTION_CONTRACT_TXID="{{ key "smart-contracts/live/distribution-address" }}"
+          FACILITY_CONTRACT_ADDRESS="{{ key "facilitator/sepolia/live/address" }}"
+          REGISTRATOR_CONTRACT_ADDRESS="{{ key "registrator/sepolia/live/address" }}"
+          TOKEN_CONTRACT_ADDRESS="{{ key "ator-token/sepolia/live/address" }}"
           {{- range service "validator-live-mongo" }}
             MONGO_URI="mongodb://{{ .Address }}:{{ .Port }}/operator-checks-live"
           {{- end }}
