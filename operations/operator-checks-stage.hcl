@@ -34,12 +34,12 @@ job "operator-checks-stage" {
     task "operator-checks-stage-service" {
       driver = "docker"
       config {
-        image = "ghcr.io/anyone-protocol/operator-checks:[[.commit_sha]]"
+        image = "ghcr.io/anyone-protocol/operator-checks:[[ .commit_sha ]]"
       }
 
       env {
         IS_LIVE="true"
-        VERSION="[[.commit_sha]]"
+        VERSION="[[ .commit_sha ]]"
         
         REDIS_HOSTNAME="localhost"
         REDIS_PORT="${NOMAD_PORT_redis}"
