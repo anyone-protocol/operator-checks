@@ -66,7 +66,7 @@ job "operator-checks-redis-sentinel-stage" {
 
         args = [
           "redis-server",
-          "--port", "6379",
+          "--port", "${NOMAD_PORT_redis_master}",
           "--appendonly", "yes",
           "--repl-diskless-load", "on-empty-db",
           "--replica-announce-ip", "${NOMAD_IP_redis_master}",
@@ -97,7 +97,7 @@ job "operator-checks-redis-sentinel-stage" {
 
         args = [
           "redis-server",
-          "--port", "6380",
+          "--port", "${NOMAD_PORT_redis_replica_1}",
           "--appendonly", "yes",
           "--replicaof", "${NOMAD_IP_redis_master}", "${NOMAD_PORT_redis_master}",
           "--repl-diskless-load", "on-empty-db",
@@ -129,7 +129,7 @@ job "operator-checks-redis-sentinel-stage" {
 
         args = [
           "redis-server",
-          "--port", "6381",
+          "--port", "${NOMAD_PORT_redis_replica_2}",
           "--appendonly", "yes",
           "--replicaof", "${NOMAD_IP_redis_master}", "${NOMAD_PORT_redis_master}",
           "--repl-diskless-load", "on-empty-db",
