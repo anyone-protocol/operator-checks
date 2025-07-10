@@ -174,7 +174,7 @@ job "operator-checks-redis-sentinel-stage" {
         args = [
           "redis-sentinel",
           "/local/sentinel.conf",
-          "--port", "26379"
+          "--port", "${NOMAD_PORT_sentinel_1}"
         ]
         volumes = [ "local/sentinel.conf:/local/sentinel.conf" ]
       }
@@ -207,7 +207,7 @@ job "operator-checks-redis-sentinel-stage" {
         args = [
           "redis-sentinel",
           "/local/sentinel.conf",
-          "--port", "26380"
+          "--port", "${NOMAD_PORT_sentinel_2}"
         ]
         volumes = [ "local/sentinel.conf:/local/sentinel.conf" ]
       }
@@ -240,7 +240,7 @@ job "operator-checks-redis-sentinel-stage" {
         args = [
           "redis-sentinel",
           "/local/sentinel.conf",
-          "--port", "26381"
+          "--port", "${NOMAD_PORT_sentinel_3}"
         ]
         volumes = [ "local/sentinel.conf:/local/sentinel.conf" ]
       }
