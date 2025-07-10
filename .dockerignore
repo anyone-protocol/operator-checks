@@ -6,3 +6,5 @@ dist
 
 version.yml
 deploy.env
+operations
+.github
