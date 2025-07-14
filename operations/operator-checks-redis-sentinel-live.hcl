@@ -116,7 +116,7 @@ job "operator-checks-redis-sentinel-live" {
 
       resources {
         cpu    = 1024
-        memory = 2048
+        memory = 1024
       }
     }
 
@@ -148,7 +148,7 @@ job "operator-checks-redis-sentinel-live" {
 
       resources {
         cpu    = 1024
-        memory = 2048
+        memory = 1024
       }
     }
 
@@ -181,7 +181,7 @@ job "operator-checks-redis-sentinel-live" {
 
       resources {
         cpu    = 256
-        memory = 512
+        memory = 256
       }
     }
 
@@ -214,7 +214,7 @@ job "operator-checks-redis-sentinel-live" {
 
       resources {
         cpu    = 256
-        memory = 512
+        memory = 256
       }
     }
 
@@ -247,7 +247,7 @@ job "operator-checks-redis-sentinel-live" {
 
       resources {
         cpu    = 256
-        memory = 512
+        memory = 256
       }
     }
 
