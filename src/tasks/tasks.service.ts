@@ -81,12 +81,12 @@ export class TasksService implements OnApplicationBootstrap {
     this.logger.log('Bootstrapping Tasks Service')
 
     if (this.isLive != 'true') {
-      this.logger.debug('Cleaning up tasks queue because IS_LIVE is not true')
+      this.logger.log('Cleaning up tasks queue because IS_LIVE is not true')
       await this.tasksQueue.obliterate({ force: true })
     }
 
     if (this.doClean === 'true') {
-      this.logger.debug('Cleaning up tasks queue because DO_CLEAN is true')
+      this.logger.log('Cleaning up tasks queue because DO_CLEAN is true')
       await this.tasksQueue.obliterate({ force: true })
     }
 
