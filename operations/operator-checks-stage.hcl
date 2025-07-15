@@ -26,9 +26,6 @@ job "operator-checks-stage" {
         to = 3000
         host_network = "wireguard"
       }
-      port "redis" {
-        host_network = "wireguard"
-      }
     }
 
     task "operator-checks-stage-service" {

@@ -86,7 +86,10 @@ export class TasksService implements OnApplicationBootstrap {
     this.logger.log('Queued immediate balance checks')
   }
 
-  public async queueCheckBalances(delayJob: number = 1000 * 60 * 5): Promise<void> {
+  public async queueCheckBalances(
+    delayJob: number = 1000 * 60 * 5
+  ): Promise<void> {
+    this.logger.log(`Queueing check balances job with delay: ${delayJob}ms`)
     await this.tasksQueue.add(
       'check-balances',
       {},

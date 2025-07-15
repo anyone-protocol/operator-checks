@@ -39,23 +39,23 @@ job "operator-checks-redis-sentinel-stage" {
       }
     }
 
-    # volume "redis-master-data" {
-    #   type      = "host"
-    #   source    = "redis-master-data"
-    #   read_only = false
-    # }
+    volume "operator-checks-redis-sentinel-stage-master-data" {
+      type      = "host"
+      source    = "operator-checks-redis-sentinel-stage-master-data"
+      read_only = false
+    }
 
-    # volume "redis-replica-1-data" {
-    #   type      = "host"
-    #   source    = "redis-replica-1-data"
-    #   read_only = false
-    # }
+    volume "operator-checks-redis-sentinel-stage-replica-1-data" {
+      type      = "host"
+      source    = "operator-checks-redis-sentinel-stage-replica-1-data"
+      read_only = false
+    }
 
-    # volume "redis-replica-2-data" {
-    #   type      = "host"
-    #   source    = "redis-replica-2-data"
-    #   read_only = false
-    # }
+    volume "operator-checks-redis-sentinel-stage-replica-2-data" {
+      type      = "host"
+      source    = "operator-checks-redis-sentinel-stage-replica-2-data"
+      read_only = false
+    }
 
     task "operator-checks-redis-sentinel-stage-redis-master-task" {
       driver = "docker"
@@ -76,11 +76,11 @@ job "operator-checks-redis-sentinel-stage" {
         ]
       }
 
-      # volume_mount {
-      #   volume      = "redis-master-data"
-      #   destination = "/data"
-      #   read_only   = false
-      # }
+      volume_mount {
+        volume      = "operator-checks-redis-sentinel-stage-master-data"
+        destination = "/data"
+        read_only   = false
+      }
 
       resources {
         cpu    = 1024
@@ -108,11 +108,11 @@ job "operator-checks-redis-sentinel-stage" {
         ]
       }
 
-      # volume_mount {
-      #   volume      = "redis-replica-1-data"
-      #   destination = "/data"
-      #   read_only   = false
-      # }
+      volume_mount {
+        volume      = "operator-checks-redis-sentinel-stage-replica-1-data"
+        destination = "/data"
+        read_only   = false
+      }
 
       resources {
         cpu    = 1024
@@ -140,11 +140,11 @@ job "operator-checks-redis-sentinel-stage" {
         ]
       }
 
-      # volume_mount {
-      #   volume      = "redis-replica-2-data"
-      #   destination = "/data"
-      #   read_only   = false
-      # }
+      volume_mount {
+        volume      = "operator-checks-redis-sentinel-stage-replica-2-data"
+        destination = "/data"
+        read_only   = false
+      }
 
       resources {
         cpu    = 1024
