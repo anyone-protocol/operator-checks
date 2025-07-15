@@ -10,6 +10,7 @@ export class TasksService implements OnApplicationBootstrap {
   private readonly logger = new Logger(TasksService.name)
 
   private isLive?: string
+  private doClean?: string
 
   static readonly removeOnComplete = true
   static readonly removeOnFail = 8
@@ -72,13 +73,19 @@ export class TasksService implements OnApplicationBootstrap {
     public balancesFlow: FlowProducer,
   ) {
     this.isLive = this.config.get<string>('IS_LIVE', { infer: true })
+    this.doClean = this.config.get<string>('DO_CLEAN', { infer: true })
   }
 
   async onApplicationBootstrap(): Promise<void> {
     this.logger.log('Bootstrapping Tasks Service')
 
     if (this.isLive != 'true') {
-      this.logger.debug('Cleaning up queues for dev...')
+      this.logger.debug('Cleaning up tasks queue because IS_LIVE is not true')
+      await this.tasksQueue.obliterate({ force: true })
+    }
+
+    if (this.doClean === 'true') {
+      this.logger.debug('Cleaning up tasks queue because DO_CLEAN is true')
       await this.tasksQueue.obliterate({ force: true })
     }
 
@@ -89,6 +96,24 @@ export class TasksService implements OnApplicationBootstrap {
   public async queueCheckBalances(
     delayJob: number = 1000 * 60 * 5
   ): Promise<void> {
+    this.logger.log(
+      `Checking jobs in tasks queue before queueing new check balances job ` +
+        `with delay: ${delayJob}ms`
+    )
+    const numJobsInQueue = await this.tasksQueue.getJobCountByTypes(
+      'waiting',
+      'delayed',
+      'active'
+    )
+
+    if (numJobsInQueue > 0) {
+      this.logger.warn(
+        `There are ${numJobsInQueue} jobs in the tasks queue, ` +
+          `not queueing new check balances job`
+      )
+      return
+    }
+
     this.logger.log(`Queueing check balances job with delay: ${delayJob}ms`)
     await this.tasksQueue.add(
       'check-balances',
