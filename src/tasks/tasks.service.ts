@@ -14,6 +14,7 @@ export class TasksService implements OnApplicationBootstrap {
 
   static readonly removeOnComplete = true
   static readonly removeOnFail = 8
+  static readonly DEFAULT_DELAY = 1000 * 60 * 5 // 5 minutes
 
   public static jobOpts = {
     removeOnComplete: TasksService.removeOnComplete,
@@ -93,13 +94,15 @@ export class TasksService implements OnApplicationBootstrap {
     this.logger.log('Queued immediate balance checks')
   }
 
-  public async queueCheckBalances(opts: {
-    delayJob: number
-    skipActiveCheck?: boolean
-  } = {
-    delayJob: 1000 * 60 * 5,
-    skipActiveCheck: false
-  }): Promise<void> {
+  public async queueCheckBalances(
+    opts: {
+      delayJob?: number
+      skipActiveCheck?: boolean
+    } = {
+      delayJob: TasksService.DEFAULT_DELAY,
+      skipActiveCheck: false
+    }
+  ): Promise<void> {
     this.logger.log(
       `Checking jobs in tasks queue before queueing new check balances job ` +
         `with delay: ${opts.delayJob}ms`

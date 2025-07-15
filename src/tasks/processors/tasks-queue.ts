@@ -19,7 +19,10 @@ export class TasksQueue extends WorkerHost {
     switch (job.name) {
       case TasksQueue.JOB_CHECK_BALANCES:
         this.tasks.balancesFlow.add(TasksService.CHECK_BALANCES_FLOW(Date.now()))
-        this.tasks.queueCheckBalances() // using default delay time in param
+        this.tasks.queueCheckBalances({
+          delayJob: TasksService.DEFAULT_DELAY,
+          skipActiveCheck: true
+        })
         break
 
       default:
