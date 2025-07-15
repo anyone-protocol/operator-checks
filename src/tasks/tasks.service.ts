@@ -89,23 +89,27 @@ export class TasksService implements OnApplicationBootstrap {
       await this.tasksQueue.obliterate({ force: true })
     }
 
-    await this.queueCheckBalances(0)
+    await this.queueCheckBalances({ delayJob: 0 })
     this.logger.log('Queued immediate balance checks')
   }
 
-  public async queueCheckBalances(
-    delayJob: number = 1000 * 60 * 5
-  ): Promise<void> {
+  public async queueCheckBalances(opts: {
+    delayJob: number
+    skipActiveCheck?: boolean
+  } = {
+    delayJob: 1000 * 60 * 5,
+    skipActiveCheck: false
+  }): Promise<void> {
     this.logger.log(
       `Checking jobs in tasks queue before queueing new check balances job ` +
-        `with delay: ${delayJob}ms`
+        `with delay: ${opts.delayJob}ms`
     )
-    const numJobsInQueue = await this.tasksQueue.getJobCountByTypes(
-      'waiting',
-      'delayed',
-      'active'
-    )
-
+    let numJobsInQueue = 0
+    numJobsInQueue += await this.tasksQueue.getWaitingCount()
+    numJobsInQueue += await this.tasksQueue.getDelayedCount()
+    if (!opts.skipActiveCheck) {
+      numJobsInQueue += await this.tasksQueue.getActiveCount()
+    }
     if (numJobsInQueue > 0) {
       this.logger.warn(
         `There are ${numJobsInQueue} jobs in the tasks queue, ` +
@@ -114,12 +118,14 @@ export class TasksService implements OnApplicationBootstrap {
       return
     }
 
-    this.logger.log(`Queueing check balances job with delay: ${delayJob}ms`)
+    this.logger.log(
+      `Queueing check balances job with delay: ${opts.delayJob}ms`
+    )
     await this.tasksQueue.add(
       'check-balances',
       {},
       {
-        delay: delayJob,
+        delay: opts.delayJob,
         removeOnComplete: TasksService.removeOnComplete,
         removeOnFail: TasksService.removeOnFail,
       },
