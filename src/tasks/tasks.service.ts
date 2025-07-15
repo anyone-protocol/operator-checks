@@ -90,8 +90,8 @@ export class TasksService implements OnApplicationBootstrap {
       await this.tasksQueue.obliterate({ force: true })
     }
 
-    await this.queueCheckBalances({ delayJob: 0 })
-    this.logger.log('Queued immediate balance checks')
+    this.logger.log('Queueing immediate balance checks')
+    await this.queueCheckBalances({ delayJob: 0 })    
   }
 
   public async queueCheckBalances(
