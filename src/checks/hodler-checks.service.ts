@@ -130,12 +130,21 @@ export class HodlerChecksService {
     address?: string
   }> {
     if (!this.tokenAddress) {
-      this.logger.error('Token address not provided. Unable to check hodler token balance.')
+      this.logger.error(
+        'Token address not provided. Unable to check hodler token balance.'
+      )
+      return { balance: BigInt(0), address: this.contractAddress }
+    }
+
+    if (!this.contractAddress) {
+      this.logger.error(
+        'Contract address not provided. Unable to check hodler token balance.'
+      )
       return { balance: BigInt(0), address: this.contractAddress }
     }
 
     try {
-      const result = await this.contract.balanceOf(this.contractAddress!)
+      const result = await this.contract.balanceOf(this.contractAddress)
       if (!result) {
         this.logger.error(`Failed to fetch hodler token balance`)
         return { balance: BigInt(0), address: this.contractAddress }
