@@ -75,21 +75,19 @@ job "operator-checks-stage" {
 
       template {
         data = <<-EOH
-        {{with secret "kv/stage-protocol/operator-checks-stage"}}
-        RELAY_REGISTRY_OPERATOR_KEY="{{.Data.data.RELAY_REGISTRY_CONTROLLER_KEY}}"
-        DISTRIBUTION_OPERATOR_KEY="{{.Data.data.DISTRIBUTION_OPERATOR_KEY_DEPRECATED}}"
-        FACILITY_OPERATOR_KEY="{{.Data.data.FACILITY_OPERATOR_KEY_DEPRECATED}}"
-        HODLER_OPERATOR_KEY="{{ .Data.data.HODLER_OPERATOR_KEY_DEPRECATED }}"
-        REGISTRATOR_OPERATOR_KEY="{{.Data.data.REGISTRATOR_OPERATOR_KEY_DEPRECATED}}"
+        {{- with secret "kv/stage-protocol/operator-checks-stage" }}
+        OPERATOR_REGISTRY_CONTROLLER_ADDRESS="{{ .Data.data.OPERATOR_REGISTRY_CONTROLLER_ADDRESS }}"
+        RELAY_REWARDS_CONTROLLER_ADDRESS="{{ .Data.data.RELAY_REWARDS_CONTROLLER_ADDRESS }}"
+        HODLER_OPERATOR_ADDRESS="{{ .Data.data.HODLER_OPERATOR_ADDRESS }}"
+        ETH_SPENDER_KEY="{{ .Data.data.ETH_SPENDER_KEY }}"
+        AR_SPENDER_KEY={{ base64Decode .Data.data.AR_SPENDER_KEY_BASE64 | toJSON }}
+        BUNDLER_OPERATOR_JWK={{ base64Decode .Data.data.BUNDLER_KEY_BASE64 | toJSON }}
+        REWARDS_POOL_ADDRESS="{{ .Data.data.REWARDS_POOL_ADDRESS }}"
         JSON_RPC="{{.Data.data.JSON_RPC}}"
         INFURA_NETWORK="{{.Data.data.INFURA_NETWORK}}"
         INFURA_WS_URL="{{.Data.data.INFURA_WS_URL}}"
         BUNDLER_NETWORK="{{.Data.data.BUNDLER_NETWORK}}"
-        ETH_SPENDER_KEY="{{.Data.data.ETH_SPENDER_KEY}}"
-        AR_SPENDER_KEY={{ base64Decode .Data.data.AR_SPENDER_KEY_BASE64 | toJSON }}
-        BUNDLER_OPERATOR_JWK={{ base64Decode .Data.data.BUNDLER_KEY_BASE64 | toJSON }}
-        REWARDS_POOL_ADDRESS="{{ .Data.data.REWARDS_POOL_ADDRESS }}"
-        {{end}}
+        {{- end }}
         EOH
         destination = "secrets/keys.env"
         env         = true

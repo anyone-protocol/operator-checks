@@ -33,7 +33,7 @@ export class HodlerChecksService {
       IS_LIVE: string
       TOKEN_CONTRACT_ADDRESS: string
       HODLER_CONTRACT_ADDRESS: string
-      HODLER_OPERATOR_KEY: string
+      HODLER_OPERATOR_ADDRESS: string
       JSON_RPC: string
       HODLER_OPERATOR_MIN_ETH: number
       HODLER_OPERATOR_MAX_ETH: number
@@ -61,24 +61,32 @@ export class HodlerChecksService {
     } else {
       this.provider = new ethers.JsonRpcProvider(this.jsonRpc)
 
-      if (!this.tokenAddress) this.logger.error('Missing TOKEN_CONTRACT_ADDRESS. Skipping hodler checks...')
-      else {
-        this.contract = new ethers.Contract(this.tokenAddress, this.erc20Abi, this.provider)
+      if (!this.tokenAddress) {
+        this.logger.error(
+          'Missing TOKEN_CONTRACT_ADDRESS. Skipping hodler checks...'
+        )
+      } else {
+        this.contract = new ethers.Contract(
+          this.tokenAddress,
+          this.erc20Abi,
+          this.provider
+        )
       }
 
-      const operatorKey = this.config.get<string>('HODLER_OPERATOR_KEY', { infer: true })
-      if (!operatorKey) this.logger.error('Missing HODLER_OPERATOR_KEY. Skipping hodler checks...')
-      else {
-        this.operator = new ethers.Wallet(operatorKey, this.provider)
-        this.operator.getAddress().then(address => {
-          this.operatorAddress = address
-          this.logger.log(
-            `Initialized balance checks for hodler ${this.contractAddress} with operator ${
-              address
-            } and token: ${this.tokenAddress}`,
-          )
-        })
-
+      const operatorAddress = this.config.get<string>(
+        'HODLER_OPERATOR_ADDRESS',
+        { infer: true }
+      )
+      if (!operatorAddress) {
+        this.logger.error(
+          'Missing HODLER_OPERATOR_ADDRESS. Skipping hodler operator checks...'
+        )
+      } else {
+        this.operatorAddress = operatorAddress
+        this.logger.log(
+          `Initialized hodler operator checks for address: ` +
+            `[${this.operatorAddress}]`
+        )
       }
     }
   }
