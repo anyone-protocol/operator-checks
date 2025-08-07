@@ -96,6 +96,8 @@ job "operator-checks-stage" {
         env         = true
       }
 
+      consul {}
+
       template {
         data = <<-EOH
         RELAY_REGISTRY_CONTRACT_TXID="{{ key "smart-contracts/stage/relay-registry-address" }}"
