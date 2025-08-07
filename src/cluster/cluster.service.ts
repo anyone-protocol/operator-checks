@@ -19,7 +19,6 @@ export class ClusterService implements OnApplicationBootstrap, BeforeApplication
   public isLeader?: boolean
 
   private isLive?: string
-
   private serviceId: string
   private serviceName: string
   private sessionId: string | null = null
@@ -36,7 +35,6 @@ export class ClusterService implements OnApplicationBootstrap, BeforeApplication
     }>
   ) {
     this.isLive = this.config.get<string>('IS_LIVE', { infer: true })
-
     const host = this.config.get<string>('CONSUL_HOST', { infer: true })
     const port = this.config.get<number>('CONSUL_PORT', { infer: true })
 
@@ -53,7 +51,6 @@ export class ClusterService implements OnApplicationBootstrap, BeforeApplication
 
         this.logger.log(`Connecting to Consul at ${host}:${port} with service: ${this.serviceName}`)
         this.consul = new Consul({ host, port, defaults: { token: consulToken } })
-        
       } else {
         this.logger.warn('Host/port of Consul not set, bootstrapping in single node mode...')
         this.isLeader = true
@@ -76,13 +73,20 @@ export class ClusterService implements OnApplicationBootstrap, BeforeApplication
   }
 
   async onApplicationBootstrap(): Promise<void> {
-    if (this.consul && this.isLocalLeader()) {
-      try {
-        this.sessionId = await this.createSession()
-        this.startLeaderElection()
-      } catch (error) {
-        this.logger.error(`Failed to initialize clustering discovery: ${error.message}`, error.stack)
-      }
+    if (!this.consul) { return }
+    if (!this.isLocalLeader()) {
+      this.logger.log('Not a local leader, skipping leader election setup.')
+      return
+    }
+
+    try {
+      this.sessionId = await this.createSession()
+      this.startLeaderElection()
+    } catch (error) {
+      this.logger.error(
+        `Failed to initialize clustering discovery: ${error.message}`,
+        error.stack
+      )
     }
   }
 
