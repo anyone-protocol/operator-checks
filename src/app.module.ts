@@ -7,6 +7,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config'
 import { BullModule } from '@nestjs/bullmq'
 import { ChecksModule } from './checks/checks.module'
 import { ConnectionOptions } from 'bullmq'
+import { ClusterModule } from './cluster/cluster.module'
 
 @Module({
   imports: [
@@ -80,6 +81,7 @@ import { ConnectionOptions } from 'bullmq'
         return { connection }
       }
     }),
+    ClusterModule,
     ChecksModule,
   ],
   controllers: [AppController],

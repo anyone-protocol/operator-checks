@@ -9,7 +9,7 @@ job "operator-checks-stage" {
   }
 
   group "operator-checks-stage-group" {
-    count = 1
+    count = 2
 
     update {
       max_parallel     = 1
