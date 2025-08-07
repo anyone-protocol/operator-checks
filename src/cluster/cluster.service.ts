@@ -1,8 +1,11 @@
-import { BeforeApplicationShutdown, Inject, Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common'
+import {
+  BeforeApplicationShutdown,
+  Injectable,
+  Logger,
+  OnApplicationBootstrap
+} from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import Consul from 'consul'
-import { Append, AppendResult, Config, State, Vote, VoteResult } from './interfaces/raft-types'
-import { AppThreadsService } from './app-threads.service'
 
 import { v4 as uuidv4 } from 'uuid'
 
@@ -85,13 +88,19 @@ export class ClusterService implements OnApplicationBootstrap, BeforeApplication
   }
 
   private async createSession(): Promise<string> {
+    if (!this.consul) {
+      throw new Error('Consul client is not initialized')
+    }
+
     const { ID } = await this.consul.session.create({
       name: this.serviceId,
       ttl: '15s',
     })
 
     setInterval(() => {
-      this.consul.session.renew(ID)
+      if (this.consul) {
+        this.consul.session.renew(ID)
+      }
     }, 10000)
 
     return ID
@@ -101,7 +110,7 @@ export class ClusterService implements OnApplicationBootstrap, BeforeApplication
     const leaderKey = `clusters/${this.serviceName}/leader`
 
     const acquireLock = async () => {
-      if (!this.sessionId) return
+      if (!this.sessionId || !this.consul) return
 
       try {
         const result = await this.consul.kv.set({
@@ -119,16 +128,18 @@ export class ClusterService implements OnApplicationBootstrap, BeforeApplication
 
     await acquireLock()
 
-    this.consul
-      .watch({
-        method: this.consul.kv.get,
-        options: { key: leaderKey },
-        backoffFactor: 1000,
-      })
-      .on('change', async (data: any) => {
-        if (!data) {
-          await acquireLock()
-        }
-      })
+    if (this.consul) {
+      this.consul
+        .watch({
+          method: this.consul.kv.get,
+          options: { key: leaderKey },
+          backoffFactor: 1000,
+        })
+        .on('change', async (data: any) => {
+          if (!data) {
+            await acquireLock()
+          }
+        })
+      }
   }
 }
