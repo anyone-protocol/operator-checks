@@ -64,7 +64,7 @@ job "operator-checks-stage" {
         CU_URL="https://cu.anyone.permaweb.services"
         IS_LOCAL_LEADER="true"
         CPU_COUNT="1"
-        CONSUL_HOST="${CONSUL_HTTP_ADDR}"
+        # CONSUL_HOST="${CONSUL_HTTP_ADDR}"
         # CONSUL_HOST="10.1.110.1"
         CONSUL_PORT="8500"
         CONSUL_SERVICE_NAME="operator-checks-stage"
@@ -134,6 +134,7 @@ job "operator-checks-stage" {
         REDIS_SENTINEL_3_HOST={{ .Address }}
         REDIS_SENTINEL_3_PORT={{ .Port }}
         {{- end }}
+        CONSUL_HOST="{{ env `CONSUL_HTTP_ADDR` }}"
         EOH
         destination = "local/config.env"
         env         = true
