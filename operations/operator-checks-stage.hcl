@@ -22,7 +22,6 @@ job "operator-checks-stage" {
 
     network {
       port "http" {
-        to = 3000
         host_network = "wireguard"
       }
     }
@@ -37,6 +36,7 @@ job "operator-checks-stage" {
       env {
         IS_LIVE="true"
         VERSION="[[ .commit_sha ]]"
+		    PORT="${NOMAD_PORT_http}"
         REDIS_MODE="sentinel"
         REDIS_MASTER_NAME="operator-checks-stage-redis-master"
         RELAY_REGISTRY_OPERATOR_MIN_BALANCE=1000000
