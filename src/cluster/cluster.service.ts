@@ -42,7 +42,7 @@ export class ClusterService implements OnApplicationBootstrap, BeforeApplication
 
     if (this.isLive === 'true') {
       if (host != undefined && port != undefined) {
-        const serviceName = this.config.get<string>('SERVICE_NAME', { infer: true })
+        const serviceName = this.config.get<string>('CONSUL_SERVICE_NAME', { infer: true })
         if (!serviceName) {
           this.logger.error('Missing CONSUL_SERVICE_NAME. Cannot initialize Consul service!')
           throw new Error('CONSUL_SERVICE_NAME is required for Consul service initialization')
