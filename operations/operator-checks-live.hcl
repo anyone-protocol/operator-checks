@@ -22,11 +22,8 @@ job "operator-checks-live" {
 
     network {
       mode = "bridge"
-      port "operator-checks" {
+      port "http" {
         to = 3000
-        host_network = "wireguard"
-      }
-      port "redis" {
         host_network = "wireguard"
       }
     }
@@ -59,6 +56,9 @@ job "operator-checks-live" {
         AO_TOKEN_PROCESS_ID="Pi-WmAQp2-mh-oWH9lWpz5EthlUDj_W0IusAv-RXhRk"
         BUNDLER_NODE="https://node2.irys.xyz"
         IS_LOCAL_LEADER="true"
+        CPU_COUNT="1"
+        CONSUL_HOST="${NOMAD_IP_http}"
+        CONSUL_PORT="8500"
       }
 
       vault {
@@ -89,6 +89,8 @@ job "operator-checks-live" {
         destination = "secrets/keys.env"
         env         = true
       }
+
+      consul {}
 
       template {
         data = <<-EOH
@@ -132,7 +134,7 @@ job "operator-checks-live" {
 
       service {
         name = "operator-checks-live"
-        port = "operator-checks"
+        port = "http"
         tags = ["logging"]
         check {
           name     = "operator-checks health check"
