@@ -75,12 +75,6 @@ job "operator-checks-stage" {
         role = "any1-nomad-workloads-controller"
       }
 
-      identity {
-        name = "vault_default"
-        aud  = ["any1-infra"]
-        ttl  = "1h"
-      }
-
       template {
         data = <<-EOH
         {{- with secret "kv/stage-protocol/operator-checks-stage" }}
@@ -101,8 +95,6 @@ job "operator-checks-stage" {
         destination = "secrets/keys.env"
         env         = true
       }
-
-      consul {}
 
       template {
         data = <<-EOH
