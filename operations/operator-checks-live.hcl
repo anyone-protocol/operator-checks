@@ -58,6 +58,7 @@ job "operator-checks-live" {
         RELAY_REWARDS_OPERATOR_MAX_AO_BALANCE=1000
         AO_TOKEN_PROCESS_ID="Pi-WmAQp2-mh-oWH9lWpz5EthlUDj_W0IusAv-RXhRk"
         BUNDLER_NODE="https://node2.irys.xyz"
+        IS_LOCAL_LEADER="true"
       }
 
       vault {
