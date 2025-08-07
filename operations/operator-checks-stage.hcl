@@ -21,7 +21,6 @@ job "operator-checks-stage" {
     }
 
     network {
-      mode = "bridge"
       port "http" {
         to = 3000
         host_network = "wireguard"
@@ -31,6 +30,7 @@ job "operator-checks-stage" {
     task "operator-checks-stage-service" {
       driver = "docker"
       config {
+        network_mode = "host"
         image = "ghcr.io/anyone-protocol/operator-checks:[[ .commit_sha ]]"
       }
 
