@@ -10,7 +10,9 @@ import Consul from 'consul'
 import { v4 as uuidv4 } from 'uuid'
 
 @Injectable()
-export class ClusterService implements OnApplicationBootstrap, BeforeApplicationShutdown {
+export class ClusterService
+  implements OnApplicationBootstrap, BeforeApplicationShutdown
+{
   private readonly logger = new Logger(ClusterService.name)
 
   // true - should receive and act on one-time only events
@@ -38,26 +40,54 @@ export class ClusterService implements OnApplicationBootstrap, BeforeApplication
     const host = this.config.get<string>('CONSUL_HOST', { infer: true })
     const port = this.config.get<number>('CONSUL_PORT', { infer: true })
 
-    if (this.isLive === 'true') {
-      if (host != undefined && port != undefined) {
-        const serviceName = this.config.get<string>('CONSUL_SERVICE_NAME', { infer: true })
-        if (!serviceName) {
-          this.logger.error('Missing CONSUL_SERVICE_NAME. Cannot initialize Consul service!')
-          throw new Error('CONSUL_SERVICE_NAME is required for Consul service initialization')
-        }
-        this.serviceName = serviceName
-        this.serviceId = `${this.serviceName}-${uuidv4()}`
-        const consulToken = this.config.get<string>('CONSUL_TOKEN_CONTROLLER_CLUSTER', { infer: true })
-
-        this.logger.log(`Connecting to Consul at ${host}:${port} with service: ${this.serviceName}`)
-        this.consul = new Consul({ host, port, defaults: { token: consulToken } })
-      } else {
-        this.logger.warn('Host/port of Consul not set, bootstrapping in single node mode...')
-        this.isLeader = true
-      }
-    } else {
-      this.logger.warn('Not live, skipping consul based cluster data. Bootstrapping in single node mode...')
+    if (this.isLive !== 'true') {
+      this.logger.warn(
+        'Not live, skipping consul based cluster data. ' +
+          'Bootstrapping in single node mode...'
+      )
       this.isLeader = true
+      return
+    }
+
+    if (!host || !port) {
+      this.logger.warn(
+        'Host/port of Consul not set, bootstrapping in single node mode...'
+      )
+      this.isLeader = true
+      return
+    }
+
+    const serviceName = this.config.get<string>(
+      'CONSUL_SERVICE_NAME',
+      { infer: true }
+    )
+    if (!serviceName) {
+      this.logger.error(
+        'Missing CONSUL_SERVICE_NAME. Cannot initialize Consul service!'
+      )
+      throw new Error(
+        'CONSUL_SERVICE_NAME is required for Consul service initialization'
+      )
+    }
+    this.serviceName = serviceName
+    this.serviceId = `${this.serviceName}-${uuidv4()}`
+    const consulToken = this.config.get<string>(
+      'CONSUL_TOKEN_CONTROLLER_CLUSTER',
+      { infer: true }
+    )
+
+    try {
+      this.logger.log(
+        `Connecting to Consul at ${host}:${port} ` +
+          `with service: ${this.serviceName}`
+      )
+      this.consul = new Consul({ host, port, defaults: { token: consulToken } })
+    } catch (error) {
+      this.logger.error(
+        `Failed to connect to Consul: ${error.message}`,
+        error
+      )
+      throw error
     }
   }
 
@@ -68,7 +98,10 @@ export class ClusterService implements OnApplicationBootstrap, BeforeApplication
 
   public isTheOne(): boolean {
     const isLL = this.isLocalLeader()
-    this.logger.debug(`is the one? isLeader: ${this.isLeader} isLocalLeader: ${isLL} - ${process.pid}`)
+    this.logger.debug(
+      `is the one? isLeader: ${this.isLeader} ` +
+        `isLocalLeader: ${isLL} - ${process.pid}`
+    )
     return this.isLeader != undefined && this.isLeader == true && isLL
   }
 
@@ -129,7 +162,10 @@ export class ClusterService implements OnApplicationBootstrap, BeforeApplication
         })
 
         this.isLeader = result
-        this.logger.log(`Instance ${this.serviceId} is ${this.isLeader ? 'now leader' : 'not leader'}`)
+        this.logger.log(
+          `Instance ${this.serviceId} is ` +
+            `${this.isLeader ? 'now leader' : 'not leader'}`
+        )
       } catch (error) {
         this.logger.error('Error during leader election:', error)
       }
