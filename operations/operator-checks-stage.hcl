@@ -28,6 +28,7 @@ job "operator-checks-stage" {
     }
 
     task "operator-checks-stage-service" {
+      kill_timeout = "30s"
       driver = "docker"
       config {
         network_mode = "host"

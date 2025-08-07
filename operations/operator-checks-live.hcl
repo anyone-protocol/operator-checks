@@ -28,6 +28,7 @@ job "operator-checks-live" {
     }
 
     task "operator-checks-live-service" {
+      kill_timeout = "30s"
       driver = "docker"
       config {
         network_mode = "host"
