@@ -58,8 +58,10 @@ job "operator-checks-live" {
         CU_URL="https://cu.anyone.permaweb.services"
         IS_LOCAL_LEADER="true"
         CPU_COUNT="1"
-        CONSUL_HOST="${NOMAD_IP_http}"
+        # CONSUL_HOST="${NOMAD_IP_http}"
+        CONSUL_HOST="10.1.110.1"
         CONSUL_PORT="8500"
+        CONSUL_SERVICE_NAME="operator-checks-live"
       }
 
       vault {
