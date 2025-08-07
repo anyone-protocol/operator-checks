@@ -94,6 +94,7 @@ job "operator-checks-stage" {
         INFURA_NETWORK="{{.Data.data.INFURA_NETWORK}}"
         INFURA_WS_URL="{{.Data.data.INFURA_WS_URL}}"
         BUNDLER_NETWORK="{{.Data.data.BUNDLER_NETWORK}}"
+        CONSUL_TOKEN_CONTROLLER_CLUSTER="{{.Data.data.CONSUL_TOKEN_CONTROLLER_CLUSTER}}"
         {{- end }}
         EOH
         destination = "secrets/keys.env"
