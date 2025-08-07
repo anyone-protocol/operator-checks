@@ -66,6 +66,7 @@ job "operator-checks-stage" {
         CPU_COUNT="1"
         CONSUL_HOST="${NOMAD_IP_http}"
         CONSUL_PORT="8500"
+        CONSUL_SERVICE_NAME="operator-checks-stage"
       }
 
       vault {
