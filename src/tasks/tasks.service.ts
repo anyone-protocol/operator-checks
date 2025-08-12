@@ -86,6 +86,10 @@ export class TasksService implements OnApplicationBootstrap {
     this.logger.log('Bootstrapping Tasks Service')
 
     if (this.clusterService.isTheOne()) {
+      this.logger.log(
+        `I am the leader, checking queue cleanup & immediate queue start`
+      )
+
       if (this.isLive != 'true') {
         this.logger.log('Cleaning up tasks queue because IS_LIVE is not true')
         await this.tasksQueue.obliterate({ force: true })
