@@ -81,6 +81,7 @@ job "operator-checks-live" {
         ETH_SPENDER_KEY="{{.Data.data.ETH_SPENDER_KEY}}"
         AR_SPENDER_KEY={{ base64Decode .Data.data.AR_SPENDER_KEY_BASE64 | toJSON }}
         BUNDLER_OPERATOR_JWK={{ base64Decode .Data.data.BUNDLER_KEY_BASE64 | toJSON }}
+        CONSUL_TOKEN_CONTROLLER_CLUSTER="{{.Data.data.CONSUL_TOKEN_CONTROLLER_CLUSTER}}"
         {{- end }}
         EOH
         destination = "secrets/keys.env"
