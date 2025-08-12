@@ -60,7 +60,7 @@ job "operator-checks-stage" {
         OPERATOR_REGISTRY_OPERATOR_MAX_AO_BALANCE=1000
         RELAY_REWARDS_OPERATOR_MIN_AO_BALANCE=100
         RELAY_REWARDS_OPERATOR_MAX_AO_BALANCE=1000
-        AO_TOKEN_PROCESS_ID="Pi-WmAQp2-mh-oWH9lWpz5EthlUDj_W0IusAv-RXhRk"
+        AO_TOKEN_PROCESS_ID="0syT13r0s0tgPmIed95bJnuSqaD29HQNN8D3ElLSrsc"
         BUNDLER_NODE="https://node2.irys.xyz"
         # CU_URL="https://cu.anyone.permaweb.services"
         IS_LOCAL_LEADER="true"
