@@ -12,29 +12,22 @@ job "operator-checks-redis-sentinel-live" {
     count = 1
 
     network {
-      mode = "bridge"
       port "redis-master" {
-        static = 6379
         host_network = "wireguard"
       }
       port "redis-replica-1" {
-        static = 6380
         host_network = "wireguard"
       }
       port "redis-replica-2" {
-        static = 6381
         host_network = "wireguard"
       }
       port "sentinel-1" {
-        static = 26379
         host_network = "wireguard"
       }
       port "sentinel-2" {
-        static = 26380
         host_network = "wireguard"
       }
       port "sentinel-3" {
-        static = 26381
         host_network = "wireguard"
       }
     }
@@ -62,17 +55,17 @@ job "operator-checks-redis-sentinel-live" {
 
       config {
         image = "redis:latest"
-        ports = ["redis-master"]
+        network_mode = "host"
 
         args = [
           "redis-server",
-          "--port", "6379",
+          "--port", "${NOMAD_PORT_redis_master}",
           "--appendonly", "yes",
           "--repl-diskless-load", "on-empty-db",
           "--replica-announce-ip", "${NOMAD_IP_redis_master}",
           "--replica-announce-port", "${NOMAD_PORT_redis_master}",
           "--protected-mode", "no",
-          "--bind", "0.0.0.0"
+          "--bind", "${NOMAD_IP_redis_master}"
         ]
       }
 
@@ -93,18 +86,18 @@ job "operator-checks-redis-sentinel-live" {
 
       config {
         image = "redis:latest"
-        ports = ["redis-replica-1"]
+        network_mode = "host"
 
         args = [
           "redis-server",
-          "--port", "6380",
+          "--port", "${NOMAD_PORT_redis_replica_1}",
           "--appendonly", "yes",
           "--replicaof", "${NOMAD_IP_redis_master}", "${NOMAD_PORT_redis_master}",
           "--repl-diskless-load", "on-empty-db",
           "--replica-announce-ip", "${NOMAD_IP_redis_replica_1}",
           "--replica-announce-port", "${NOMAD_PORT_redis_replica_1}",
           "--protected-mode", "no",
-          "--bind", "0.0.0.0"
+          "--bind", "${NOMAD_IP_redis_replica_1}"
         ]
       }
 
@@ -125,18 +118,18 @@ job "operator-checks-redis-sentinel-live" {
 
       config {
         image = "redis:latest"
-        ports = ["redis-replica-2"]
+        network_mode = "host"
 
         args = [
           "redis-server",
-          "--port", "6381",
+          "--port", "${NOMAD_PORT_redis_replica_2}",
           "--appendonly", "yes",
           "--replicaof", "${NOMAD_IP_redis_master}", "${NOMAD_PORT_redis_master}",
           "--repl-diskless-load", "on-empty-db",
           "--replica-announce-ip", "${NOMAD_IP_redis_replica_2}",
           "--replica-announce-port", "${NOMAD_PORT_redis_replica_2}",
           "--protected-mode", "no",
-          "--bind", "0.0.0.0"
+          "--bind", "${NOMAD_IP_redis_replica_2}"
         ]
       }
 
@@ -157,7 +150,7 @@ job "operator-checks-redis-sentinel-live" {
 
       template {
         data = <<-EOT
-        bind 0.0.0.0
+        bind {{ env "NOMAD_IP_sentinel_1" }}
         sentinel monitor operator-checks-live-redis-master {{ env "NOMAD_IP_redis_master" }} {{ env "NOMAD_PORT_redis_master" }} 2
         sentinel resolve-hostnames yes
         sentinel down-after-milliseconds operator-checks-live-redis-master 10000
@@ -170,11 +163,11 @@ job "operator-checks-redis-sentinel-live" {
 
       config {
         image = "redis:latest"
-        ports = ["sentinel-1"]
+        network_mode = "host"
         args = [
           "redis-sentinel",
           "/local/sentinel.conf",
-          "--port", "26379"
+          "--port", "${NOMAD_PORT_sentinel_1}"
         ]
         volumes = [ "local/sentinel.conf:/local/sentinel.conf" ]
       }
@@ -190,7 +183,7 @@ job "operator-checks-redis-sentinel-live" {
 
       template {
         data = <<-EOT
-        bind 0.0.0.0
+        bind {{ env "NOMAD_IP_sentinel_2" }}
         sentinel monitor operator-checks-live-redis-master {{ env "NOMAD_IP_redis_master" }} {{ env "NOMAD_PORT_redis_master" }} 2
         sentinel resolve-hostnames yes
         sentinel down-after-milliseconds operator-checks-live-redis-master 10000
@@ -203,11 +196,11 @@ job "operator-checks-redis-sentinel-live" {
 
       config {
         image = "redis:latest"
-        ports = ["sentinel-2"]
+        network_mode = "host"
         args = [
           "redis-sentinel",
           "/local/sentinel.conf",
-          "--port", "26380"
+          "--port", "${NOMAD_PORT_sentinel_2}"
         ]
         volumes = [ "local/sentinel.conf:/local/sentinel.conf" ]
       }
@@ -223,7 +216,7 @@ job "operator-checks-redis-sentinel-live" {
 
       template {
         data = <<-EOT
-        bind 0.0.0.0
+        bind {{ env "NOMAD_IP_sentinel_3" }}
         sentinel monitor operator-checks-live-redis-master {{ env "NOMAD_IP_redis_master" }} {{ env "NOMAD_PORT_redis_master" }} 2
         sentinel resolve-hostnames yes
         sentinel down-after-milliseconds operator-checks-live-redis-master 10000
@@ -236,11 +229,11 @@ job "operator-checks-redis-sentinel-live" {
 
       config {
         image = "redis:latest"
-        ports = ["sentinel-3"]
+        network_mode = "host"
         args = [
           "redis-sentinel",
           "/local/sentinel.conf",
-          "--port", "26381"
+          "--port", "${NOMAD_PORT_sentinel_3}"
         ]
         volumes = [ "local/sentinel.conf:/local/sentinel.conf" ]
       }
@@ -259,7 +252,6 @@ job "operator-checks-redis-sentinel-live" {
         type     = "tcp"
         interval = "10s"
         timeout  = "3s"
-        address_mode = "alloc"
       }
     }
 
@@ -271,7 +263,6 @@ job "operator-checks-redis-sentinel-live" {
         type     = "tcp"
         interval = "10s"
         timeout  = "3s"
-        address_mode = "alloc"
       }
     }
 
@@ -283,7 +274,6 @@ job "operator-checks-redis-sentinel-live" {
         type     = "tcp"
         interval = "10s"
         timeout  = "3s"
-        address_mode = "alloc"
       }
     }
 
@@ -295,7 +285,6 @@ job "operator-checks-redis-sentinel-live" {
         type     = "tcp"
         interval = "10s"
         timeout  = "3s"
-        address_mode = "alloc"
       }
     }
 
@@ -307,7 +296,6 @@ job "operator-checks-redis-sentinel-live" {
         type     = "tcp"
         interval = "10s"
         timeout  = "3s"
-        address_mode = "alloc"
       }
     }
 
@@ -319,7 +307,6 @@ job "operator-checks-redis-sentinel-live" {
         type     = "tcp"
         interval = "10s"
         timeout  = "3s"
-        address_mode = "alloc"
       }
     }
   }
