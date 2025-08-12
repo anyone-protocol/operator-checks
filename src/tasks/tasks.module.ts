@@ -1,11 +1,13 @@
 import { BullModule } from '@nestjs/bullmq'
 import { Module } from '@nestjs/common'
+
 import { TasksQueue } from './processors/tasks-queue'
 import { TasksService } from './tasks.service'
 import { BalanceChecksQueue } from './processors/balance-checks-queue'
-import { ChecksModule } from 'src/checks/checks.module'
-import { RefillsModule } from 'src/refills/refills.module'
+import { ChecksModule } from '../checks/checks.module'
+import { RefillsModule } from '../refills/refills.module'
 import { RefillsQueue } from './processors/refills-queue'
+import { ClusterModule } from '../cluster/cluster.module'
 
 @Module({
   imports: [
@@ -23,7 +25,10 @@ import { RefillsQueue } from './processors/refills-queue'
       name: 'operator-checks-refills-queue',
       streams: { events: { maxLen: 500 } },
     }),
-    BullModule.registerFlowProducer({ name: 'operator-checks-balance-checks-flow' }),
+    BullModule.registerFlowProducer({
+      name: 'operator-checks-balance-checks-flow'
+    }),
+    ClusterModule
   ],
   providers: [TasksService, TasksQueue, BalanceChecksQueue, RefillsQueue],
   exports: [TasksService],

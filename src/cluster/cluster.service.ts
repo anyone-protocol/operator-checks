@@ -23,7 +23,6 @@ export class ClusterService
   private serviceId: string
   private serviceName: string
   private sessionId: string | null = null
-
   private consul?: Consul
 
   constructor(

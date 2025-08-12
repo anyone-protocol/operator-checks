@@ -5,6 +5,8 @@ import { ConfigService } from '@nestjs/config'
 import { ethers } from 'ethers'
 import BigNumber from 'bignumber.js'
 
+import { ClusterService } from '../cluster/cluster.service'
+
 @Injectable()
 export class TasksService implements OnApplicationBootstrap {
   private readonly logger = new Logger(TasksService.name)
@@ -67,11 +69,14 @@ export class TasksService implements OnApplicationBootstrap {
       IS_LIVE: string
       DO_CLEAN: boolean
     }>,
-    @InjectQueue('operator-checks-tasks-queue') public tasksQueue: Queue,
-    @InjectQueue('operator-checks-balance-checks-queue') public balancesQueue: Queue,
+    @InjectQueue('operator-checks-tasks-queue')
+    public tasksQueue: Queue,
+    @InjectQueue('operator-checks-balance-checks-queue')
+    public balancesQueue: Queue,
     @InjectQueue('operator-checks-refills-queue') public refillsQueue: Queue,
     @InjectFlowProducer('operator-checks-balance-checks-flow')
     public balancesFlow: FlowProducer,
+    private readonly clusterService: ClusterService,
   ) {
     this.isLive = this.config.get<string>('IS_LIVE', { infer: true })
     this.doClean = this.config.get<string>('DO_CLEAN', { infer: true })
@@ -80,18 +85,25 @@ export class TasksService implements OnApplicationBootstrap {
   async onApplicationBootstrap(): Promise<void> {
     this.logger.log('Bootstrapping Tasks Service')
 
-    if (this.isLive != 'true') {
-      this.logger.log('Cleaning up tasks queue because IS_LIVE is not true')
-      await this.tasksQueue.obliterate({ force: true })
-    }
+    if (this.clusterService.isTheOne()) {
+      if (this.isLive != 'true') {
+        this.logger.log('Cleaning up tasks queue because IS_LIVE is not true')
+        await this.tasksQueue.obliterate({ force: true })
+      }
 
-    if (this.doClean === 'true') {
-      this.logger.log('Cleaning up tasks queue because DO_CLEAN is true')
-      await this.tasksQueue.obliterate({ force: true })
-    }
+      if (this.doClean === 'true') {
+        this.logger.log('Cleaning up tasks queue because DO_CLEAN is true')
+        await this.tasksQueue.obliterate({ force: true })
+      }
 
-    this.logger.log('Queueing immediate balance checks')
-    await this.queueCheckBalances({ delayJob: 0 })    
+      this.logger.log('Queueing immediate balance checks')
+      await this.queueCheckBalances({ delayJob: 0 })
+    } else {
+      this.logger.log(
+        `Not the leader, skipping queue cleanup check & ` +
+          `skipping queueing immediate balance checks`
+      )
+    }
   }
 
   public async queueCheckBalances(

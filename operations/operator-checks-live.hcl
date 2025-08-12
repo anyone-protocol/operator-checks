@@ -56,11 +56,10 @@ job "operator-checks-live" {
         RELAY_REWARDS_OPERATOR_MAX_AO_BALANCE=1000
         AO_TOKEN_PROCESS_ID="Pi-WmAQp2-mh-oWH9lWpz5EthlUDj_W0IusAv-RXhRk"
         BUNDLER_NODE="https://node2.irys.xyz"
-        CU_URL="https://cu.anyone.permaweb.services"
+        # CU_URL="https://cu.anyone.permaweb.services"
         IS_LOCAL_LEADER="true"
         CPU_COUNT="1"
-        # CONSUL_HOST="${NOMAD_IP_http}"
-        CONSUL_HOST="10.1.110.1"
+        CONSUL_HOST="${NOMAD_IP_http}"
         CONSUL_PORT="8500"
         CONSUL_SERVICE_NAME="operator-checks-live"
       }
