@@ -96,13 +96,15 @@ export class HodlerChecksService {
     address?: string
     requestAmount?: bigint
   }> {
-    if (!this.operator) {
-      this.logger.error('Hodler operator is undefined. Unable to check operator balance')
+    if (!this.operatorAddress) {
+      this.logger.error(
+        'Hodler operatorAddress is undefined. Unable to check operator balance'
+      )
       return { balance: BigInt(0), address: this.operatorAddress }
     }
 
     try {
-      const result = await this.provider.getBalance(this.operator.address)
+      const result = await this.provider.getBalance(this.operatorAddress)
       if (!result) {
         this.logger.error(`Failed to fetch hodler operator balance`)
         return { balance: BigInt(0), address: this.operatorAddress }
