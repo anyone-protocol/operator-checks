@@ -143,15 +143,15 @@ export class BalanceChecksQueue extends WorkerHost {
       case BalanceChecksQueue.JOB_CHECK_HODLER:
         try {
           const ethCheck = await this.hodlerChecks.getOperatorEth()
-          const tokensCheck = await this.hodlerChecks.getContractTokens()
+          // const tokensCheck = await this.hodlerChecks.getContractTokens()
           const rewardsPoolCheck = await this.hodlerChecks.getRewardsPoolTokens()
 
-          if (tokensCheck.requestAmount && tokensCheck.address) {
-            await this.tasks.requestRefillToken(
-              tokensCheck.address,
-              tokensCheck.requestAmount
-            )
-          }
+          // if (tokensCheck.requestAmount && tokensCheck.address) {
+          //   await this.tasks.requestRefillToken(
+          //     tokensCheck.address,
+          //     tokensCheck.requestAmount
+          //   )
+          // }
 
           if (rewardsPoolCheck.requestAmount && rewardsPoolCheck.address) {
             await this.tasks.requestRefillToken(
@@ -168,13 +168,13 @@ export class BalanceChecksQueue extends WorkerHost {
               requestAmount: ethCheck.requestAmount?.toString() || undefined,
               address: ethCheck.address
             },
-            {
-              stamp: job.data,
-              kind: 'hodler-contract-tokens',
-              amount: tokensCheck.balance.toString(),
-              requestAmount: tokensCheck.requestAmount?.toString() || undefined,
-              address: tokensCheck.address
-            },
+            // {
+            //   stamp: job.data,
+            //   kind: 'hodler-contract-tokens',
+            //   amount: tokensCheck.balance.toString(),
+            //   requestAmount: tokensCheck.requestAmount?.toString() || undefined,
+            //   address: tokensCheck.address
+            // },
           ]
         } catch (error) {
           this.logger.error('Failed checking hodler', error.stack)
