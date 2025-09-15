@@ -76,8 +76,8 @@ job "operator-checks-stage" {
         JSON_RPC="{{.Data.data.JSON_RPC}}"
         OPERATOR_REGISTRY_CONTROLLER_ADDRESS="{{ .Data.data.OPERATOR_REGISTRY_CONTROLLER_ADDRESS }}"
         RELAY_REWARDS_CONTROLLER_ADDRESS="{{ .Data.data.RELAY_REWARDS_CONTROLLER_ADDRESS }}"
-        STAKING_REWARDS_CONTROLLER_ADDRESS="{{ .Data.data.STAKING_REWARDS_CONTROLLER_ADDRESS }}"
         REWARDS_POOL_ADDRESS="{{ .Data.data.REWARDS_POOL_ADDRESS }}"
+        STAKING_REWARDS_CONTROLLER_ADDRESS="{{ .Data.data.STAKING_REWARDS_CONTROLLER_ADDRESS }}"
         {{- end }}
         EOH
         destination = "secrets/keys.env"

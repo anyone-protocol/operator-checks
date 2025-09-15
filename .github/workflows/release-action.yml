@@ -10,9 +10,9 @@ env:
 
 jobs:
   push:
-    # runs-on: ubuntu-latest
+    runs-on: ubuntu-latest
     # runs-on: self-hosted
-    runs-on: anyone-arc-runner-set
+    # runs-on: anyone-arc-runner-set
     permissions:
       packages: write
       contents: read
