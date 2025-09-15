@@ -37,14 +37,6 @@ job "operator-checks-stage" {
 		    PORT="${NOMAD_PORT_http}"
         REDIS_MODE="sentinel"
         REDIS_MASTER_NAME="operator-checks-stage-redis-master"
-        RELAY_REGISTRY_OPERATOR_MIN_BALANCE=1000000
-        RELAY_REGISTRY_OPERATOR_MAX_BALANCE=100000000
-        DISTRIBUTION_OPERATOR_MIN_BALANCE=3000000
-        DISTRIBUTION_OPERATOR_MAX_BALANCE=300000000
-        FACILITY_OPERATOR_MIN_ETH=1
-        FACILITY_OPERATOR_MAX_ETH=5
-        FACILITY_CONTRACT_MIN_TOKEN=100000
-        FACILITY_CONTRACT_MAX_TOKEN=200000
         HODLER_OPERATOR_MIN_ETH=1
         HODLER_OPERATOR_MAX_ETH=5
         REWARDS_POOL_MIN_TOKEN=100000
@@ -59,6 +51,7 @@ job "operator-checks-stage" {
         STAKING_REWARDS_OPERATOR_MAX_AO_BALANCE=1000
         AO_TOKEN_PROCESS_ID="0syT13r0s0tgPmIed95bJnuSqaD29HQNN8D3ElLSrsc"
         BUNDLER_NODE="https://node2.irys.xyz"
+        # Checking only AO balances, so can't use CU limited to our processes
         # CU_URL="https://cu.anyone.permaweb.services"
         IS_LOCAL_LEADER="true"
         CPU_COUNT="1"
