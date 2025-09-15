@@ -15,7 +15,7 @@ export class BalancesService {
     this.logger.log(`Initialized balances service`)
   }
 
-  async publishBalanceChecks(data: BalancesData[]): Promise<boolean> {
+  async storeCheckResults(data: BalancesData[]): Promise<boolean> {
     try {
       // data.forEach((entry) => this.logger.log(`${entry.stamp} ${entry.kind} = ${ethers.formatUnits(entry.amount, 18)}`))
       await this.balancesDataModel.create(data)

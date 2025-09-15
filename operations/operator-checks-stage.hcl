@@ -47,8 +47,6 @@ job "operator-checks-stage" {
         FACILITY_CONTRACT_MAX_TOKEN=200000
         HODLER_OPERATOR_MIN_ETH=1
         HODLER_OPERATOR_MAX_ETH=5
-        HODLER_CONTRACT_MIN_TOKEN=100000
-        HODLER_CONTRACT_MAX_TOKEN=200000
         REWARDS_POOL_MIN_TOKEN=100000
         REWARDS_POOL_MAX_TOKEN=250000
         BUNDLER_MIN_AR=1
@@ -57,6 +55,8 @@ job "operator-checks-stage" {
         OPERATOR_REGISTRY_OPERATOR_MAX_AO_BALANCE=1000
         RELAY_REWARDS_OPERATOR_MIN_AO_BALANCE=100
         RELAY_REWARDS_OPERATOR_MAX_AO_BALANCE=1000
+        STAKING_REWARDS_OPERATOR_MIN_AO_BALANCE=100
+        STAKING_REWARDS_OPERATOR_MAX_AO_BALANCE=1000
         AO_TOKEN_PROCESS_ID="0syT13r0s0tgPmIed95bJnuSqaD29HQNN8D3ElLSrsc"
         BUNDLER_NODE="https://node2.irys.xyz"
         # CU_URL="https://cu.anyone.permaweb.services"
@@ -74,18 +74,17 @@ job "operator-checks-stage" {
       template {
         data = <<-EOH
         {{- with secret "kv/stage-protocol/operator-checks-stage" }}
-        OPERATOR_REGISTRY_CONTROLLER_ADDRESS="{{ .Data.data.OPERATOR_REGISTRY_CONTROLLER_ADDRESS }}"
-        RELAY_REWARDS_CONTROLLER_ADDRESS="{{ .Data.data.RELAY_REWARDS_CONTROLLER_ADDRESS }}"
-        HODLER_OPERATOR_ADDRESS="{{ .Data.data.HODLER_OPERATOR_ADDRESS }}"
-        ETH_SPENDER_KEY="{{ .Data.data.ETH_SPENDER_KEY }}"
         AR_SPENDER_KEY={{ base64Decode .Data.data.AR_SPENDER_KEY_BASE64 | toJSON }}
         BUNDLER_OPERATOR_JWK={{ base64Decode .Data.data.BUNDLER_KEY_BASE64 | toJSON }}
-        REWARDS_POOL_ADDRESS="{{ .Data.data.REWARDS_POOL_ADDRESS }}"
-        JSON_RPC="{{.Data.data.JSON_RPC}}"
-        INFURA_NETWORK="{{.Data.data.INFURA_NETWORK}}"
-        INFURA_WS_URL="{{.Data.data.INFURA_WS_URL}}"
         BUNDLER_NETWORK="{{.Data.data.BUNDLER_NETWORK}}"
         CONSUL_TOKEN_CONTROLLER_CLUSTER="{{.Data.data.CONSUL_TOKEN_CONTROLLER_CLUSTER}}"
+        ETH_SPENDER_KEY="{{ .Data.data.ETH_SPENDER_KEY }}"
+        HODLER_OPERATOR_ADDRESS="{{ .Data.data.HODLER_OPERATOR_ADDRESS }}"
+        JSON_RPC="{{.Data.data.JSON_RPC}}"
+        OPERATOR_REGISTRY_CONTROLLER_ADDRESS="{{ .Data.data.OPERATOR_REGISTRY_CONTROLLER_ADDRESS }}"
+        RELAY_REWARDS_CONTROLLER_ADDRESS="{{ .Data.data.RELAY_REWARDS_CONTROLLER_ADDRESS }}"
+        STAKING_REWARDS_CONTROLLER_ADDRESS="{{ .Data.data.STAKING_REWARDS_CONTROLLER_ADDRESS }}"
+        REWARDS_POOL_ADDRESS="{{ .Data.data.REWARDS_POOL_ADDRESS }}"
         {{- end }}
         EOH
         destination = "secrets/keys.env"
@@ -96,11 +95,6 @@ job "operator-checks-stage" {
 
       template {
         data = <<-EOH
-        RELAY_REGISTRY_CONTRACT_TXID="{{ key "smart-contracts/stage/relay-registry-address" }}"
-        DISTRIBUTION_CONTRACT_TXID="{{ key "smart-contracts/stage/distribution-address" }}"
-        FACILITY_CONTRACT_ADDRESS="{{ key "facilitator/sepolia/stage/address" }}"
-        HODLER_CONTRACT_ADDRESS="{{ key "hodler/sepolia/stage/address" }}"
-        REGISTRATOR_CONTRACT_ADDRESS="{{ key "registrator/sepolia/stage/address" }}"
         TOKEN_CONTRACT_ADDRESS="{{ key "ator-token/sepolia/stage/address" }}"
         {{- range service "validator-stage-mongo" }}
         MONGO_URI="mongodb://{{ .Address }}:{{ .Port }}/operator-checks-stage"

@@ -4,7 +4,6 @@ import { MongooseModule } from '@nestjs/mongoose'
 import { BalancesService } from './balances.service'
 import { BalancesData, BalancesDataSchema } from './schemas/balances-data'
 import { DistributionChecksService } from './distribution-checks.service'
-import { FacilitatorChecksService } from './facilitator-checks.service'
 import { RelayRegistryChecksService } from './relay-registry-checks.service'
 import { BundlerChecksService } from './bundler-checks.service'
 import { HodlerChecksService } from './hodler-checks.service'
@@ -21,7 +20,6 @@ import { HodlerChecksService } from './hodler-checks.service'
   providers: [
     BalancesService,
     DistributionChecksService,
-    FacilitatorChecksService,
     RelayRegistryChecksService,
     BundlerChecksService,
     HodlerChecksService
@@ -29,7 +27,6 @@ import { HodlerChecksService } from './hodler-checks.service'
   exports: [
     BalancesService,
     DistributionChecksService,
-    FacilitatorChecksService,
     RelayRegistryChecksService,
     BundlerChecksService,
     HodlerChecksService

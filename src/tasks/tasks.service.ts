@@ -31,13 +31,13 @@ export class TasksService implements OnApplicationBootstrap {
       opts: TasksService.jobOpts,
       children: [
         {
-          name: 'check-facilitator',
+          name: 'check-relay-rewards',
           queueName: 'operator-checks-balance-checks-queue',
           data: stamp,
           opts: TasksService.jobOpts,
         },
         {
-          name: 'check-distribution',
+          name: 'check-staking-rewards',
           queueName: 'operator-checks-balance-checks-queue',
           data: stamp,
           opts: TasksService.jobOpts,
@@ -56,6 +56,12 @@ export class TasksService implements OnApplicationBootstrap {
         },
         {
           name: 'check-hodler',
+          queueName: 'operator-checks-balance-checks-queue',
+          data: stamp,
+          opts: TasksService.jobOpts,
+        },
+        {
+          name: 'check-rewards-pool',
           queueName: 'operator-checks-balance-checks-queue',
           data: stamp,
           opts: TasksService.jobOpts,

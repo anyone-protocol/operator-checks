@@ -3,7 +3,6 @@ import { Logger } from '@nestjs/common'
 import { Job } from 'bullmq'
 import { BalancesService } from 'src/checks/balances.service'
 import { DistributionChecksService } from 'src/checks/distribution-checks.service'
-import { FacilitatorChecksService } from 'src/checks/facilitator-checks.service'
 import { RelayRegistryChecksService } from 'src/checks/relay-registry-checks.service'
 import { BalancesData } from 'src/checks/schemas/balances-data'
 import { TasksService } from '../tasks.service'
@@ -15,16 +14,17 @@ export class BalanceChecksQueue extends WorkerHost {
   private readonly logger = new Logger(BalanceChecksQueue.name)
 
   public static readonly JOB_CHECK_RELAY_REGISTRY = 'check-relay-registry'
-  public static readonly JOB_CHECK_DISTRIBUTION = 'check-distribution'
-  public static readonly JOB_CHECK_FACILITATOR = 'check-facilitator'
   public static readonly JOB_CHECK_BUNDLER = 'check-bundler'
-  public static readonly JOB_REVIEW_BALANCE_CHECKS = 'review-balance-checks'
+  public static readonly JOB_CHECK_RELAY_REWARDS = 'check-relay-rewards'
+  public static readonly JOB_CHECK_STAKING_REWARDS = 'check-staking-rewards'
   public static readonly JOB_CHECK_HODLER = 'check-hodler'
+  public static readonly JOB_CHECK_REWARDS_POOL = 'check-rewards-pool'
+  public static readonly JOB_REVIEW_BALANCE_CHECKS = 'review-balance-checks'
+  
 
   constructor(
     private readonly balances: BalancesService,
     private readonly distributionChecks: DistributionChecksService,
-    private readonly facilitatorChecks: FacilitatorChecksService,
     private readonly relayRegistryChecks: RelayRegistryChecksService,
     private readonly bundlerChecks: BundlerChecksService,
     private readonly hodlerChecks: HodlerChecksService,
@@ -59,25 +59,47 @@ export class BalanceChecksQueue extends WorkerHost {
           return []
         }
 
-      case BalanceChecksQueue.JOB_CHECK_DISTRIBUTION:
+      case BalanceChecksQueue.JOB_CHECK_RELAY_REWARDS:
         try {
           const {
             balance,
             requestAmount,
             address
-          } = await this.distributionChecks.getOperatorBalance()
+          } = await this.distributionChecks.getRelayRewardsOperatorBalance()
 
           return [
             {
               stamp: job.data,
-              kind: 'distribution-operator-ao-balance',
+              kind: 'relay-rewards-operator-ao-balance',
               amount: balance.toString(),
               address,
               requestAmount: requestAmount?.toString() || undefined
             },
           ]
         } catch (error) {
-          this.logger.error('Failed checking distribution', error.stack)
+          this.logger.error('Failed checking relay rewards operator', error.stack)
+          return []
+        }
+
+      case BalanceChecksQueue.JOB_CHECK_STAKING_REWARDS:
+        try {
+          const {
+            balance,
+            requestAmount,
+            address
+          } = await this.distributionChecks.getStakingRewardsOperatorBalance()
+
+          return [
+            {
+              stamp: job.data,
+              kind: 'staking-rewards-operator-ao-balance',
+              amount: balance.toString(),
+              address,
+              requestAmount: requestAmount?.toString() || undefined
+            },
+          ]
+        } catch (error) {
+          this.logger.error('Failed checking staking rewards operator', error.stack)
           return []
         }
 
@@ -107,51 +129,27 @@ export class BalanceChecksQueue extends WorkerHost {
           return []
         }
 
-      case BalanceChecksQueue.JOB_CHECK_FACILITATOR:
+      case BalanceChecksQueue.JOB_CHECK_HODLER:
         try {
-          const ethCheck = await this.facilitatorChecks.getOperatorEth()
-          const tokensCheck = await this.facilitatorChecks.getContractTokens()
-
-          if (tokensCheck.requestAmount && tokensCheck.address) {
-            await this.tasks.requestRefillToken(
-              tokensCheck.address,
-              tokensCheck.requestAmount
-            )
-          }
+          const ethCheck = await this.hodlerChecks.getOperatorEth()
 
           return [
             {
               stamp: job.data,
-              kind: 'facilitator-operator-eth',
+              kind: 'hodler-operator-eth',
               amount: ethCheck.balance.toString(),
               requestAmount: ethCheck.requestAmount?.toString() || undefined,
               address: ethCheck.address
-            },
-            {
-              stamp: job.data,
-              kind: 'facilitator-contract-tokens',
-              amount: tokensCheck.balance.toString(),
-              requestAmount: tokensCheck.requestAmount?.toString() || undefined,
-              address: tokensCheck.address
-            },
+            }
           ]
         } catch (error) {
-          this.logger.error('Failed checking facilitator', error.stack)
+          this.logger.error('Failed checking hodler', error.stack)
           return []
         }
 
-      case BalanceChecksQueue.JOB_CHECK_HODLER:
+      case BalanceChecksQueue.JOB_CHECK_REWARDS_POOL:
         try {
-          const ethCheck = await this.hodlerChecks.getOperatorEth()
-          // const tokensCheck = await this.hodlerChecks.getContractTokens()
           const rewardsPoolCheck = await this.hodlerChecks.getRewardsPoolTokens()
-
-          // if (tokensCheck.requestAmount && tokensCheck.address) {
-          //   await this.tasks.requestRefillToken(
-          //     tokensCheck.address,
-          //     tokensCheck.requestAmount
-          //   )
-          // }
 
           if (rewardsPoolCheck.requestAmount && rewardsPoolCheck.address) {
             await this.tasks.requestRefillToken(
@@ -163,21 +161,14 @@ export class BalanceChecksQueue extends WorkerHost {
           return [
             {
               stamp: job.data,
-              kind: 'hodler-operator-eth',
-              amount: ethCheck.balance.toString(),
-              requestAmount: ethCheck.requestAmount?.toString() || undefined,
-              address: ethCheck.address
-            },
-            // {
-            //   stamp: job.data,
-            //   kind: 'hodler-contract-tokens',
-            //   amount: tokensCheck.balance.toString(),
-            //   requestAmount: tokensCheck.requestAmount?.toString() || undefined,
-            //   address: tokensCheck.address
-            // },
+              kind: 'rewards-pool-tokens',
+              amount: rewardsPoolCheck.balance.toString(),
+              requestAmount: rewardsPoolCheck.requestAmount?.toString() || undefined,
+              address: rewardsPoolCheck.address
+            }
           ]
         } catch (error) {
-          this.logger.error('Failed checking hodler', error.stack)
+          this.logger.error('Failed checking rewards pool', error.stack)
           return []
         }
 
@@ -187,9 +178,9 @@ export class BalanceChecksQueue extends WorkerHost {
           [],
         )
 
-        const publishResult = await this.balances.publishBalanceChecks(balanceChecks)
-        if (!publishResult) {
-          this.logger.error('Failed publishing balance checks', balanceChecks)
+        const result = await this.balances.storeCheckResults(balanceChecks)
+        if (!result) {
+          this.logger.error('Failed storing balance checks', balanceChecks)
         }
 
         return balanceChecks

@@ -8,10 +8,7 @@ export class HodlerChecksService {
 
   private isLive?: string
 
-  private contractAddress: string | undefined
   private contract: ethers.Contract
-  private contractMinToken: number
-  private contractMaxToken: number
 
   private rewardsPoolAddress: string | undefined
   private rewardsPoolMinToken: number
@@ -32,13 +29,10 @@ export class HodlerChecksService {
     private readonly config: ConfigService<{
       IS_LIVE: string
       TOKEN_CONTRACT_ADDRESS: string
-      HODLER_CONTRACT_ADDRESS: string
       HODLER_OPERATOR_ADDRESS: string
       JSON_RPC: string
       HODLER_OPERATOR_MIN_ETH: number
       HODLER_OPERATOR_MAX_ETH: number
-      HODLER_CONTRACT_MIN_TOKEN: number
-      HODLER_CONTRACT_MAX_TOKEN: number
       REWARDS_POOL_ADDRESS: string
       REWARDS_POOL_MIN_TOKEN: number
       REWARDS_POOL_MAX_TOKEN: number
@@ -46,11 +40,8 @@ export class HodlerChecksService {
   ) {
     this.isLive = this.config.get<string>('IS_LIVE', { infer: true })
     this.tokenAddress = this.config.get<string>('TOKEN_CONTRACT_ADDRESS', { infer: true })
-    this.contractAddress = this.config.get<string>('HODLER_CONTRACT_ADDRESS', { infer: true })
     this.operatorMinEth = this.config.get<number>('HODLER_OPERATOR_MIN_ETH', { infer: true })
     this.operatorMaxEth = this.config.get<number>('HODLER_OPERATOR_MAX_ETH', { infer: true })
-    this.contractMinToken = this.config.get<number>('HODLER_CONTRACT_MIN_TOKEN', { infer: true })
-    this.contractMaxToken = this.config.get<number>('HODLER_CONTRACT_MAX_TOKEN', { infer: true })
     this.rewardsPoolAddress = this.config.get<string>('REWARDS_POOL_ADDRESS', { infer: true })
     this.rewardsPoolMinToken = this.config.get<number>('REWARDS_POOL_MIN_TOKEN', { infer: true })
     this.rewardsPoolMaxToken = this.config.get<number>('REWARDS_POOL_MAX_TOKEN', { infer: true })
@@ -132,56 +123,6 @@ export class HodlerChecksService {
     }
 
     return { balance: BigInt(0), address: this.operatorAddress }
-  }
-
-  async getContractTokens(): Promise<{
-    balance: bigint
-    requestAmount?: bigint
-    address?: string
-  }> {
-    if (!this.tokenAddress) {
-      this.logger.error(
-        'Token address not provided. Unable to check hodler token balance.'
-      )
-      return { balance: BigInt(0), address: this.contractAddress }
-    }
-
-    if (!this.contractAddress) {
-      this.logger.error(
-        'Contract address not provided. Unable to check hodler token balance.'
-      )
-      return { balance: BigInt(0), address: this.contractAddress }
-    }
-
-    try {
-      const result = await this.contract.balanceOf(this.contractAddress)
-      if (!result) {
-        this.logger.error(`Failed to fetch hodler token balance`)
-        return { balance: BigInt(0), address: this.contractAddress }
-      }
-
-      const minAmount = ethers.parseUnits(this.contractMinToken.toString(), 18)
-      const maxAmount = ethers.parseUnits(this.contractMaxToken.toString(), 18)
-      if (result < minAmount) {
-        this.logger.warn(`Balance depletion on hodler token: ${ethers.formatUnits(result, 18)} $ANYONE < ${ethers.formatUnits(minAmount, 18)} $ANYONE`)
-        
-        return {
-          balance: result,
-          requestAmount: maxAmount - result,
-          address: this.contractAddress
-        }
-      } else if (result > maxAmount) {
-        this.logger.warn(`[alarm=balance-accumulation-anyonetokens-hodler] Balance accumulation on hodler token: ${ethers.formatUnits(result, 18)} $ANYONE > ${ethers.formatUnits(minAmount, 18)} $ANYONE`)
-      } else {
-        this.logger.log(`Checked contract tokens ${ethers.formatUnits(result, 18)} vs min: ${ethers.formatUnits(minAmount, 18)}`)
-      }
-
-      return { balance: result, address: this.contractAddress }
-    } catch (error) {
-      this.logger.error('Exception while fetching hodler token balance', error.stack)
-    }
-
-    return { balance: BigInt(0), address: this.contractAddress }
   }
 
   async getRewardsPoolTokens(): Promise<{
