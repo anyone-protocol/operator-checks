@@ -37,22 +37,21 @@ job "operator-checks-live" {
 		    PORT="${NOMAD_PORT_http}"
         REDIS_MODE="sentinel"
         REDIS_MASTER_NAME="operator-checks-live-redis-master"
-        RELAY_REGISTRY_OPERATOR_MIN_BALANCE=1000000
-        RELAY_REGISTRY_OPERATOR_MAX_BALANCE=100000000
-        DISTRIBUTION_OPERATOR_MIN_BALANCE=3000000
-        DISTRIBUTION_OPERATOR_MAX_BALANCE=300000000
-        FACILITY_OPERATOR_MIN_ETH=1
-        FACILITY_OPERATOR_MAX_ETH=5
-        FACILITY_CONTRACT_MIN_TOKEN=100000
-        FACILITY_CONTRACT_MAX_TOKEN=200000
+        HODLER_OPERATOR_MIN_ETH=1
+        HODLER_OPERATOR_MAX_ETH=5
+        REWARDS_POOL_MIN_TOKEN=100000
+        REWARDS_POOL_MAX_TOKEN=250000
         BUNDLER_MIN_AR=1
         BUNDLER_MAX_AR=2
         OPERATOR_REGISTRY_OPERATOR_MIN_AO_BALANCE=100
         OPERATOR_REGISTRY_OPERATOR_MAX_AO_BALANCE=1000
         RELAY_REWARDS_OPERATOR_MIN_AO_BALANCE=100
         RELAY_REWARDS_OPERATOR_MAX_AO_BALANCE=1000
+        STAKING_REWARDS_OPERATOR_MIN_AO_BALANCE=100
+        STAKING_REWARDS_OPERATOR_MAX_AO_BALANCE=1000
         AO_TOKEN_PROCESS_ID="0syT13r0s0tgPmIed95bJnuSqaD29HQNN8D3ElLSrsc"
         BUNDLER_NODE="https://node2.irys.xyz"
+        # Checking only AO balances, so can't use CU limited to our processes
         # CU_URL="https://cu.anyone.permaweb.services"
         IS_LOCAL_LEADER="true"
         CPU_COUNT="1"
@@ -68,17 +67,17 @@ job "operator-checks-live" {
       template {
         data = <<-EOH
         {{- with secret "kv/live-protocol/operator-checks-live" }}
-        OPERATOR_REGISTRY_CONTROLLER_ADDRESS="{{ .Data.data.OPERATOR_REGISTRY_CONTROLLER_ADDRESS }}"
-        RELAY_REWARDS_CONTROLLER_ADDRESS="{{ .Data.data.RELAY_REWARDS_CONTROLLER_ADDRESS }}"
-        HODLER_OPERATOR_ADDRESS="{{ .Data.data.HODLER_OPERATOR_ADDRESS }}"        
-        JSON_RPC="{{.Data.data.JSON_RPC}}"
-        INFURA_NETWORK="{{.Data.data.INFURA_NETWORK}}"
-        INFURA_WS_URL="{{.Data.data.INFURA_WS_URL}}"
-        BUNDLER_NETWORK="{{.Data.data.BUNDLER_NETWORK}}"
-        ETH_SPENDER_KEY="{{.Data.data.ETH_SPENDER_KEY}}"
         AR_SPENDER_KEY={{ base64Decode .Data.data.AR_SPENDER_KEY_BASE64 | toJSON }}
         BUNDLER_OPERATOR_JWK={{ base64Decode .Data.data.BUNDLER_KEY_BASE64 | toJSON }}
+        BUNDLER_NETWORK="{{.Data.data.BUNDLER_NETWORK}}"
         CONSUL_TOKEN_CONTROLLER_CLUSTER="{{.Data.data.CONSUL_TOKEN_CONTROLLER_CLUSTER}}"
+        ETH_SPENDER_KEY="{{ .Data.data.ETH_SPENDER_KEY }}"
+        HODLER_OPERATOR_ADDRESS="{{ .Data.data.HODLER_OPERATOR_ADDRESS }}"
+        JSON_RPC="{{.Data.data.JSON_RPC}}"
+        OPERATOR_REGISTRY_CONTROLLER_ADDRESS="{{ .Data.data.OPERATOR_REGISTRY_CONTROLLER_ADDRESS }}"
+        RELAY_REWARDS_CONTROLLER_ADDRESS="{{ .Data.data.RELAY_REWARDS_CONTROLLER_ADDRESS }}"
+        REWARDS_POOL_ADDRESS="{{ .Data.data.REWARDS_POOL_ADDRESS }}"
+        STAKING_REWARDS_CONTROLLER_ADDRESS="{{ .Data.data.STAKING_REWARDS_CONTROLLER_ADDRESS }}"
         {{- end }}
         EOH
         destination = "secrets/keys.env"
@@ -89,10 +88,6 @@ job "operator-checks-live" {
 
       template {
         data = <<-EOH
-        RELAY_REGISTRY_CONTRACT_TXID="{{ key "smart-contracts/live/relay-registry-address" }}"
-        DISTRIBUTION_CONTRACT_TXID="{{ key "smart-contracts/live/distribution-address" }}"
-        FACILITY_CONTRACT_ADDRESS="{{ key "facilitator/sepolia/live/address" }}"
-        REGISTRATOR_CONTRACT_ADDRESS="{{ key "registrator/sepolia/live/address" }}"
         TOKEN_CONTRACT_ADDRESS="{{ key "ator-token/sepolia/live/address" }}"
         {{- range service "validator-live-mongo" }}
         MONGO_URI="mongodb://{{ .Address }}:{{ .Port }}/operator-checks-live"
@@ -132,7 +127,7 @@ job "operator-checks-live" {
         port = "http"
         tags = ["logging"]
         check {
-          name     = "operator-checks health check"
+          name     = "operator-checks-live health check"
           type     = "http"
           path     = "/health"
           interval = "5s"
