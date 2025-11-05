@@ -51,8 +51,6 @@ job "operator-checks-stage" {
         STAKING_REWARDS_OPERATOR_MAX_AO_BALANCE=1000
         AO_TOKEN_PROCESS_ID="0syT13r0s0tgPmIed95bJnuSqaD29HQNN8D3ElLSrsc"
         BUNDLER_NODE="https://node2.irys.xyz"
-        # Checking only AO balances, so can't use CU limited to our processes
-        # CU_URL="https://cu.anyone.permaweb.services"
         IS_LOCAL_LEADER="true"
         CPU_COUNT="1"
         CONSUL_HOST="${NOMAD_IP_http}"
