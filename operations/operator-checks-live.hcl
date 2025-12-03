@@ -50,7 +50,6 @@ job "operator-checks-live" {
         STAKING_REWARDS_OPERATOR_MIN_AO_BALANCE=100
         STAKING_REWARDS_OPERATOR_MAX_AO_BALANCE=1000
         AO_TOKEN_PROCESS_ID="0syT13r0s0tgPmIed95bJnuSqaD29HQNN8D3ElLSrsc"
-        BUNDLER_NODE="https://node2.irys.xyz"
         IS_LOCAL_LEADER="true"
         CPU_COUNT="1"
         CONSUL_HOST="${NOMAD_IP_http}"
@@ -67,7 +66,6 @@ job "operator-checks-live" {
         {{- with secret "kv/live-protocol/operator-checks-live" }}
         AR_SPENDER_KEY={{ base64Decode .Data.data.AR_SPENDER_KEY_BASE64 | toJSON }}
         BUNDLER_OPERATOR_JWK={{ base64Decode .Data.data.BUNDLER_KEY_BASE64 | toJSON }}
-        BUNDLER_NETWORK="{{.Data.data.BUNDLER_NETWORK}}"
         CONSUL_TOKEN_CONTROLLER_CLUSTER="{{.Data.data.CONSUL_TOKEN_CONTROLLER_CLUSTER}}"
         ETH_SPENDER_KEY="{{ .Data.data.ETH_SPENDER_KEY }}"
         HODLER_OPERATOR_ADDRESS="{{ .Data.data.HODLER_OPERATOR_ADDRESS }}"
@@ -86,7 +84,7 @@ job "operator-checks-live" {
 
       template {
         data = <<-EOH
-        TOKEN_CONTRACT_ADDRESS="{{ key "ator-token/sepolia/live/address" }}"
+        TOKEN_CONTRACT_ADDRESS="{{ key "ator-token/mainnet/live/address" }}"
         {{- range service "validator-live-mongo" }}
         MONGO_URI="mongodb://{{ .Address }}:{{ .Port }}/operator-checks-live"
         {{- end }}

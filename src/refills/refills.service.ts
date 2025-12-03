@@ -26,8 +26,6 @@ export class RefillsService {
       IS_LIVE: string
       TOKEN_CONTRACT_ADDRESS: string
       JSON_RPC: string
-      BUNDLER_NODE: string
-      BUNDLER_NETWORK: string
       ETH_SPENDER_KEY: string
       AR_SPENDER_KEY: string
       ARWEAVE_GATEWAY_PROTOCOL: string
