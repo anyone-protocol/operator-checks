@@ -1,10 +1,10 @@
 {
   "name": "operator-checks",
-  "version": "0.1.0",
+  "version": "0.5.2",
   "description": "",
   "contributors": [
     "Jim Toth <jim@memeticblock.com>",
-    "Andrzej Tuchołka <kanshi@memeticblock.com>"
+    "Andrzej Tuchołka (kanshi)"
   ],
   "private": false,
   "license": "AGPL-3.0-only",
