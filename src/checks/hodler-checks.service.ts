@@ -110,7 +110,7 @@ export class HodlerChecksService {
           address: this.operatorAddress
         }
       } else if (result > this.operatorMaxEth) {
-        this.logger.warn(`[alarm=balance-accumulation-eth-hodler] Balance accumulation on hodler operator: ${ethers.formatUnits(result, 18)} $ETH > ${ethers.formatUnits(minAmount, 18)} $ETH`)
+        this.logger.warn(`[alarm=balance-accumulation-eth-hodler] Balance accumulation on hodler operator: ${ethers.formatUnits(result, 18)} $ETH > ${ethers.formatUnits(this.operatorMinEth, 18)} $ETH`)
       } else {
         this.logger.debug(`Checked operator eth ${ethers.formatUnits(result, 18)} vs min: ${ethers.formatUnits(this.operatorMinEth, 18)}`)
       }
