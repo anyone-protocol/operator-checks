@@ -16,8 +16,8 @@ export class HodlerChecksService {
 
   private operator: ethers.Wallet
   private operatorAddress: string
-  private operatorMinEth: number
-  private operatorMaxEth: number
+  private operatorMinEth: bigint
+  private operatorMaxEth: bigint
 
   private erc20Abi = ['function balanceOf(address owner) view returns (uint256)']
   private tokenAddress: string | undefined
@@ -31,8 +31,8 @@ export class HodlerChecksService {
       TOKEN_CONTRACT_ADDRESS: string
       HODLER_OPERATOR_ADDRESS: string
       JSON_RPC: string
-      HODLER_OPERATOR_MIN_ETH: number
-      HODLER_OPERATOR_MAX_ETH: number
+      HODLER_OPERATOR_MIN_ETH: string
+      HODLER_OPERATOR_MAX_ETH: string
       REWARDS_POOL_ADDRESS: string
       REWARDS_POOL_MIN_TOKEN: number
       REWARDS_POOL_MAX_TOKEN: number
@@ -40,8 +40,8 @@ export class HodlerChecksService {
   ) {
     this.isLive = this.config.get<string>('IS_LIVE', { infer: true })
     this.tokenAddress = this.config.get<string>('TOKEN_CONTRACT_ADDRESS', { infer: true })
-    this.operatorMinEth = this.config.get<number>('HODLER_OPERATOR_MIN_ETH', { infer: true })
-    this.operatorMaxEth = this.config.get<number>('HODLER_OPERATOR_MAX_ETH', { infer: true })
+    this.operatorMinEth = ethers.parseEther(this.config.get<string>('HODLER_OPERATOR_MIN_ETH', { infer: true }) || "0")
+    this.operatorMaxEth = ethers.parseEther(this.config.get<string>('HODLER_OPERATOR_MAX_ETH', { infer: true }) || "0")
     this.rewardsPoolAddress = this.config.get<string>('REWARDS_POOL_ADDRESS', { infer: true })
     this.rewardsPoolMinToken = this.config.get<number>('REWARDS_POOL_MIN_TOKEN', { infer: true })
     this.rewardsPoolMaxToken = this.config.get<number>('REWARDS_POOL_MAX_TOKEN', { infer: true })
@@ -101,20 +101,18 @@ export class HodlerChecksService {
         return { balance: BigInt(0), address: this.operatorAddress }
       }
 
-      const minAmount = ethers.parseUnits(this.operatorMinEth.toString(), 18)
-      const maxAmount = ethers.parseUnits(this.operatorMaxEth.toString(), 18)
-      if (result < minAmount) {
-        this.logger.warn(`Balance depletion on hodler operator: ${ethers.formatUnits(result, 18)} $ETH < ${ethers.formatUnits(minAmount, 18)} $ETH`)
+      if (result < this.operatorMinEth) {
+        this.logger.warn(`Balance depletion on hodler operator: ${ethers.formatUnits(result, 18)} $ETH < ${ethers.formatUnits(this.operatorMinEth, 18)} $ETH`)
 
         return {
           balance: result,
-          requestAmount: maxAmount - result,
+          requestAmount: this.operatorMaxEth - result,
           address: this.operatorAddress
         }
-      } else if (result > maxAmount) {
+      } else if (result > this.operatorMaxEth) {
         this.logger.warn(`[alarm=balance-accumulation-eth-hodler] Balance accumulation on hodler operator: ${ethers.formatUnits(result, 18)} $ETH > ${ethers.formatUnits(minAmount, 18)} $ETH`)
       } else {
-        this.logger.debug(`Checked operator eth ${ethers.formatUnits(result, 18)} vs min: ${ethers.formatUnits(minAmount, 18)}`)
+        this.logger.debug(`Checked operator eth ${ethers.formatUnits(result, 18)} vs min: ${ethers.formatUnits(this.operatorMinEth, 18)}`)
       }
 
       return { balance: result, address: this.operatorAddress }
