@@ -26,8 +26,6 @@ export class RefillsService {
       IS_LIVE: string
       TOKEN_CONTRACT_ADDRESS: string
       JSON_RPC: string
-      BUNDLER_NODE: string
-      BUNDLER_NETWORK: string
       ETH_SPENDER_KEY: string
       AR_SPENDER_KEY: string
       ARWEAVE_GATEWAY_PROTOCOL: string
@@ -105,20 +103,20 @@ export class RefillsService {
   async sendTokensTo(address: string, amount: string): Promise<boolean> {
     try {
       if (this.isLive == 'true') {
-        const tx = await this.tokenContract.transfer(address, ethers.parseUnits(amount, 18))
+        const tx = await this.tokenContract.transfer(address, amount)
         await tx.wait()
         this.logger.log(
-          `EthSpender [${this.ethSpenderAddress}] finished sending [${amount}] tokens to [${address}] with tx [${tx.hash}]`
+          `EthSpender [${this.ethSpenderAddress}] finished sending [${ethers.formatUnits(amount, 18)}] tokens to [${address}] with tx [${tx.hash}]`
         )
       } else {
         this.logger.warn(
-          `NOT LIVE, EthSpender [${this.ethSpenderAddress}] did NOT send [${amount}] tokens to [${address}]`
+          `NOT LIVE, EthSpender [${this.ethSpenderAddress}] did NOT send [${ethers.formatUnits(amount, 18)}] tokens to [${address}]`
         )
       }
       
       return true
     } catch (error) {
-      this.logger.error(`[alarm=refill-failed-anyonetokens] EthSpender [${this.ethSpenderAddress}] failed to send [${amount}] tokens to [${address}]`, error.stack)
+      this.logger.error(`[alarm=refill-failed-anyonetokens] EthSpender [${this.ethSpenderAddress}] failed to send [${ethers.formatUnits(amount, 18)}] tokens to [${address}]`, error.stack)
       return false
     }
   }
