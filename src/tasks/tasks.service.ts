@@ -206,7 +206,7 @@ export class TasksService implements OnApplicationBootstrap {
     this.logger.log(`Requesting [${amount.toFixed(6)}] Turbo Credits refill for [${address}]`)
     await this.refillsQueue.add(
       'refill-turbo-credits',
-      { turboAddress: address, creditAmount: amount },
+      { turboAddress: address, creditAmount: amount.toString() },
       {
         delay: 0,
         removeOnComplete: TasksService.removeOnComplete,

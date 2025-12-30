@@ -1,6 +1,7 @@
 import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq'
 import { Logger } from '@nestjs/common'
 import { Job } from 'bullmq'
+import BigNumber from 'bignumber.js'
 import { RefillsService } from 'src/refills/refills.service'
 
 @Processor('operator-checks-refills-queue')
@@ -71,7 +72,7 @@ export class RefillsQueue extends WorkerHost {
       case RefillsQueue.JOB_REFILL_TURBO_CREDITS:
         const { turboAddress, creditAmount } = job.data
         try {
-          const outcome = await this.refills.topUpTurboCredits(turboAddress, creditAmount)
+          const outcome = await this.refills.topUpTurboCredits(turboAddress, BigNumber(creditAmount))
 
           return outcome
         } catch (error) {
