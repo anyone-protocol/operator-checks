@@ -29,10 +29,10 @@ export class TurboCreditsChecksService {
       TURBO_DEPLOYER_ADDRESS: string
       TURBO_DEPLOYER_MIN_CREDITS: number
       TURBO_DEPLOYER_MAX_CREDITS: number
-      TURBO_RELAY_REWARDS_ADDRESS: string
+      RELAY_REWARDS_CONTROLLER_ADDRESS: string
       TURBO_RELAY_REWARDS_MIN_CREDITS: number
       TURBO_RELAY_REWARDS_MAX_CREDITS: number
-      TURBO_STAKING_REWARDS_ADDRESS: string
+      STAKING_REWARDS_CONTROLLER_ADDRESS: string
       TURBO_STAKING_REWARDS_MIN_CREDITS: number
       TURBO_STAKING_REWARDS_MAX_CREDITS: number
     }>,
@@ -53,23 +53,23 @@ export class TurboCreditsChecksService {
     }
 
     // Initialize relay-rewards-controller configuration
-    this.relayRewardsAddress = this.config.get<string>('TURBO_RELAY_REWARDS_ADDRESS', { infer: true })
+    this.relayRewardsAddress = this.config.get<string>('RELAY_REWARDS_CONTROLLER_ADDRESS', { infer: true })
     if (this.relayRewardsAddress) {
       this.relayRewardsMinCredits = this.config.get<number>('TURBO_RELAY_REWARDS_MIN_CREDITS', { infer: true })
       this.relayRewardsMaxCredits = this.config.get<number>('TURBO_RELAY_REWARDS_MAX_CREDITS', { infer: true })
       this.logger.log(`Initialized Turbo credits checks for relay-rewards-controller: [${this.relayRewardsAddress}]`)
     } else {
-      this.logger.warn('Missing TURBO_RELAY_REWARDS_ADDRESS. Skipping relay-rewards-controller Turbo credits checks...')
+      this.logger.warn('Missing RELAY_REWARDS_CONTROLLER_ADDRESS. Skipping relay-rewards-controller Turbo credits checks...')
     }
 
     // Initialize staking-rewards-controller configuration
-    this.stakingRewardsAddress = this.config.get<string>('TURBO_STAKING_REWARDS_ADDRESS', { infer: true })
+    this.stakingRewardsAddress = this.config.get<string>('STAKING_REWARDS_CONTROLLER_ADDRESS', { infer: true })
     if (this.stakingRewardsAddress) {
       this.stakingRewardsMinCredits = this.config.get<number>('TURBO_STAKING_REWARDS_MIN_CREDITS', { infer: true })
       this.stakingRewardsMaxCredits = this.config.get<number>('TURBO_STAKING_REWARDS_MAX_CREDITS', { infer: true })
       this.logger.log(`Initialized Turbo credits checks for staking-rewards-controller: [${this.stakingRewardsAddress}]`)
     } else {
-      this.logger.warn('Missing TURBO_STAKING_REWARDS_ADDRESS. Skipping staking-rewards-controller Turbo credits checks...')
+      this.logger.warn('Missing STAKING_REWARDS_CONTROLLER_ADDRESS. Skipping staking-rewards-controller Turbo credits checks...')
     }
   }
 

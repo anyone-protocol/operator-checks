@@ -81,8 +81,6 @@ job "operator-checks-stage" {
         REWARDS_POOL_ADDRESS="{{ .Data.data.REWARDS_POOL_ADDRESS }}"
         STAKING_REWARDS_CONTROLLER_ADDRESS="{{ .Data.data.STAKING_REWARDS_CONTROLLER_ADDRESS }}"
         TURBO_DEPLOYER_ADDRESS="{{ .Data.data.TURBO_DEPLOYER_ADDRESS }}"
-        TURBO_RELAY_REWARDS_ADDRESS="{{ .Data.data.TURBO_RELAY_REWARDS_ADDRESS }}"
-        TURBO_STAKING_REWARDS_ADDRESS="{{ .Data.data.TURBO_STAKING_REWARDS_ADDRESS }}"
         {{- end }}
         EOH
         destination = "secrets/keys.env"
