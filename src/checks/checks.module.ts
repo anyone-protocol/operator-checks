@@ -7,6 +7,7 @@ import { DistributionChecksService } from './distribution-checks.service'
 import { RelayRegistryChecksService } from './relay-registry-checks.service'
 import { BundlerChecksService } from './bundler-checks.service'
 import { HodlerChecksService } from './hodler-checks.service'
+import { TurboCreditsChecksService } from './turbo-credits-checks.service'
 
 @Module({
   imports: [
@@ -22,14 +23,16 @@ import { HodlerChecksService } from './hodler-checks.service'
     DistributionChecksService,
     RelayRegistryChecksService,
     BundlerChecksService,
-    HodlerChecksService
+    HodlerChecksService,
+    TurboCreditsChecksService
   ],
   exports: [
     BalancesService,
     DistributionChecksService,
     RelayRegistryChecksService,
     BundlerChecksService,
-    HodlerChecksService
+    HodlerChecksService,
+    TurboCreditsChecksService
   ],
 })
 export class ChecksModule {}

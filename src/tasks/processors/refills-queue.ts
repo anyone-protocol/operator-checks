@@ -11,6 +11,7 @@ export class RefillsQueue extends WorkerHost {
   public static readonly JOB_REFILL_TOKEN = 'refill-token'
   public static readonly JOB_REFILL_AR = 'refill-ar'
   public static readonly JOB_REFILL_AO = 'refill-ao'
+  public static readonly JOB_REFILL_TURBO_CREDITS = 'refill-turbo-credits'
   
   constructor(
     private readonly refills: RefillsService,
@@ -64,6 +65,17 @@ export class RefillsQueue extends WorkerHost {
           return outcome
         } catch (error) {
           this.logger.error(`Failed to refill token balance for ${uploaderAddress} ${uploaderAmount}`, error.stack)
+          return false
+        }
+
+      case RefillsQueue.JOB_REFILL_TURBO_CREDITS:
+        const { turboAddress, creditAmount } = job.data
+        try {
+          const outcome = await this.refills.topUpTurboCredits(turboAddress, creditAmount)
+
+          return outcome
+        } catch (error) {
+          this.logger.error(`Failed to top up Turbo credits for ${turboAddress} ${creditAmount}`, error.stack)
           return false
         }
 
