@@ -66,6 +66,24 @@ export class TasksService implements OnApplicationBootstrap {
           data: stamp,
           opts: TasksService.jobOpts,
         },
+        {
+          name: 'check-turbo-deployer',
+          queueName: 'operator-checks-balance-checks-queue',
+          data: stamp,
+          opts: TasksService.jobOpts,
+        },
+        {
+          name: 'check-turbo-relay-rewards',
+          queueName: 'operator-checks-balance-checks-queue',
+          data: stamp,
+          opts: TasksService.jobOpts,
+        },
+        {
+          name: 'check-turbo-staking-rewards',
+          queueName: 'operator-checks-balance-checks-queue',
+          data: stamp,
+          opts: TasksService.jobOpts,
+        },
       ],
     }
   }
@@ -176,6 +194,19 @@ export class TasksService implements OnApplicationBootstrap {
     await this.refillsQueue.add(
       'refill-token',
       { tokenReceiver: address, tokenAmount },
+      {
+        delay: 0,
+        removeOnComplete: TasksService.removeOnComplete,
+        removeOnFail: TasksService.removeOnFail,
+      },
+    )
+  }
+
+  public async requestRefillTurboCredits(address: string, amount: BigNumber): Promise<void> {
+    this.logger.log(`Requesting [${amount.toFixed(6)}] Turbo Credits refill for [${address}]`)
+    await this.refillsQueue.add(
+      'refill-turbo-credits',
+      { turboAddress: address, creditAmount: amount },
       {
         delay: 0,
         removeOnComplete: TasksService.removeOnComplete,

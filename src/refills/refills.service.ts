@@ -4,6 +4,7 @@ import Arweave from 'arweave'
 import { JWKInterface } from 'arweave/node/lib/wallet'
 import BigNumber from 'bignumber.js'
 import { ethers } from 'ethers'
+import { TurboFactory, ArweaveSigner, WinstonToTokenAmount } from '@ardrive/turbo-sdk'
 
 @Injectable()
 export class RefillsService {
@@ -173,6 +174,72 @@ export class RefillsService {
       return true
     } catch (error) {
       this.logger.error(`[alarm=refill-failed-ao] Failed to send [${amount}] $AO to [${address}]`, error.stack)
+      return false
+    }
+  }
+
+  async topUpTurboCredits(address: string, credits: BigNumber): Promise<boolean> {
+    try {
+      if (this.isLive == 'true') {
+        // Check AR spender balance first
+        const arSpenderBalanceWinston = await this.arweave.wallets.getBalance(this.arSpenderAddress)
+        const arSpenderBalance = this.arweave.ar.winstonToAr(arSpenderBalanceWinston)
+        
+        this.logger.log(
+          `Attempting to top up Turbo credits for [${address}] with ${credits.toFixed(6)} Credits. ArSpender balance: ${arSpenderBalance} $AR`
+        )
+
+        // Create authenticated Turbo client with AR spender
+        const signer = new ArweaveSigner(this.arSpender)
+        const turbo = TurboFactory.authenticated({ signer })
+
+        // Convert credits to winc (Winston Credits: 1 Credit = 1e12 winc)
+        const wincAmount = credits.multipliedBy(1e12).integerValue(BigNumber.ROUND_CEIL)
+        
+        // Get the required AR amount for the winc
+        const { actualTokenAmount } = await turbo.getWincForToken({
+          tokenAmount: WinstonToTokenAmount(wincAmount.toString())
+        })
+
+        const arRequired = this.arweave.ar.winstonToAr(actualTokenAmount.toString())
+        
+        if (BigNumber(arSpenderBalance).lt(BigNumber(arRequired))) {
+          this.logger.warn(
+            `[alarm=refill-failed-turbo-credits] ArSpender [${this.arSpenderAddress}] does not have enough balance [${arSpenderBalance}] $AR to top up [${credits.toFixed(6)}] Credits (requires ~${arRequired} $AR) for [${address}]`
+          )
+          return false
+        }
+
+        // Top up with AR tokens, specifying the destination address
+        const { winc, status, id } = await turbo.topUpWithTokens({
+          tokenAmount: WinstonToTokenAmount(actualTokenAmount.toString()),
+          turboCreditDestinationAddress: address,
+        })
+
+        if (status === 'confirmed' || status === 'pending') {
+          const creditsAdded = BigNumber(winc).dividedBy(1e12)
+          this.logger.log(
+            `ArSpender [${this.arSpenderAddress}] successfully topped up [${creditsAdded.toFixed(6)}] Credits to [${address}] with tx [${id}] (status: ${status})`
+          )
+          return true
+        } else {
+          this.logger.warn(
+            `[alarm=refill-failed-turbo-credits] Failed to top up Turbo credits for [${address}]: status ${status}, tx [${id}]`
+          )
+          return false
+        }
+      } else {
+        this.logger.warn(
+          `NOT LIVE, ArSpender [${this.arSpenderAddress}] did NOT top up [${credits.toFixed(6)}] Credits to [${address}]`
+        )
+      }
+      
+      return true
+    } catch (error) {
+      this.logger.error(
+        `[alarm=refill-failed-turbo-credits] Failed to top up [${credits.toFixed(6)}] Credits for [${address}]`,
+        error.stack
+      )
       return false
     }
   }
