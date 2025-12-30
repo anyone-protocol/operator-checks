@@ -24,6 +24,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@ardrive/turbo-sdk": "^1.39.2",
     "@nestjs/bullmq": "^11.0.1",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
@@ -62,6 +63,9 @@
     "ts-node": "^10.9.1",
     "tsconfig-paths": "4.2.0",
     "typescript": "^5.0.4"
+  },
+  "overrides": {
+    "@dha-team/arbundles": "1.0.3"
   },
   "jest": {
     "moduleFileExtensions": [
