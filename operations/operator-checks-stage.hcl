@@ -37,6 +37,7 @@ job "operator-checks-stage" {
 		    PORT="${NOMAD_PORT_http}"
         REDIS_MODE="sentinel"
         REDIS_MASTER_NAME="operator-checks-stage-redis-master"
+        AO_BALANCE_CHECKS_ENABLED="false"
         HODLER_OPERATOR_MIN_ETH="1"
         HODLER_OPERATOR_MAX_ETH="5"
         REWARDS_POOL_MIN_TOKEN=100000

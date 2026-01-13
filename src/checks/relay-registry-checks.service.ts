@@ -8,6 +8,7 @@ export class RelayRegistryChecksService {
   private readonly logger = new Logger(RelayRegistryChecksService.name)
 
   private isLive?: string
+  private aoBalanceChecksEnabled: boolean
 
   private aoTokenProcessId: string
   private operatorAddress: string
@@ -17,6 +18,7 @@ export class RelayRegistryChecksService {
   constructor(
     private readonly config: ConfigService<{
       IS_LIVE: string
+      AO_BALANCE_CHECKS_ENABLED: string
       OPERATOR_REGISTRY_CONTROLLER_ADDRESS: string
       OPERATOR_REGISTRY_OPERATOR_MIN_AO_BALANCE: number
       OPERATOR_REGISTRY_OPERATOR_MAX_AO_BALANCE: number
@@ -24,6 +26,10 @@ export class RelayRegistryChecksService {
     }>,
   ) {
     this.isLive = this.config.get<string>('IS_LIVE', { infer: true })
+    
+    // AO balance checks enabled by default (only disabled when explicitly set to 'false')
+    const aoChecksConfig = this.config.get<string>('AO_BALANCE_CHECKS_ENABLED', { infer: true })
+    this.aoBalanceChecksEnabled = aoChecksConfig !== 'false'
 
     const operatorAddress = this.config.get<string>('OPERATOR_REGISTRY_CONTROLLER_ADDRESS', { infer: true })
     if (!operatorAddress) {
@@ -47,6 +53,11 @@ export class RelayRegistryChecksService {
     address?: string,
     requestAmount?: BigNumber
   }> {
+    if (!this.aoBalanceChecksEnabled) {
+      this.logger.log('Skipping operator registry operator $AO balance check - AO balance checks disabled')
+      return { balance: BigNumber(0) }
+    }
+
     try {
       const { result } = await sendAosDryRun({
         processId: this.aoTokenProcessId,

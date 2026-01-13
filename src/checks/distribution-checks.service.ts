@@ -8,6 +8,7 @@ export class DistributionChecksService {
   private readonly logger = new Logger(DistributionChecksService.name)
 
   private isLive?: string
+  private aoBalanceChecksEnabled: boolean
 
   private aoTokenProcessId: string
   private relayRewardsOperatorAddress: string
@@ -20,6 +21,7 @@ export class DistributionChecksService {
   constructor(
     private readonly config: ConfigService<{
       IS_LIVE: string
+      AO_BALANCE_CHECKS_ENABLED: string
       RELAY_REWARDS_CONTROLLER_ADDRESS: string
       RELAY_REWARDS_OPERATOR_MIN_AO_BALANCE: number
       RELAY_REWARDS_OPERATOR_MAX_AO_BALANCE: number
@@ -30,6 +32,10 @@ export class DistributionChecksService {
     }>,
   ) {
     this.isLive = this.config.get<string>('IS_LIVE', { infer: true })
+    
+    // AO balance checks enabled by default (only disabled when explicitly set to 'false')
+    const aoChecksConfig = this.config.get<string>('AO_BALANCE_CHECKS_ENABLED', { infer: true })
+    this.aoBalanceChecksEnabled = aoChecksConfig !== 'false'
 
     const relayRewardsOperatorAddress = this.config.get<string>('RELAY_REWARDS_CONTROLLER_ADDRESS', { infer: true })
     if (!relayRewardsOperatorAddress) {
@@ -63,6 +69,11 @@ export class DistributionChecksService {
       address?: string,
       requestAmount?: BigNumber
     }> {
+    if (!this.aoBalanceChecksEnabled) {
+      this.logger.log('Skipping relay rewards operator $AO balance check - AO balance checks disabled')
+      return { balance: BigNumber(0) }
+    }
+
     try {
       const { result } = await sendAosDryRun({
         processId: this.aoTokenProcessId,
@@ -104,6 +115,11 @@ export class DistributionChecksService {
       address?: string,
       requestAmount?: BigNumber
     }> {
+    if (!this.aoBalanceChecksEnabled) {
+      this.logger.log('Skipping staking rewards operator $AO balance check - AO balance checks disabled')
+      return { balance: BigNumber(0) }
+    }
+
     try {
       const { result } = await sendAosDryRun({
         processId: this.aoTokenProcessId,
