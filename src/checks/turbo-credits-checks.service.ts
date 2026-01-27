@@ -52,6 +52,16 @@ export class TurboCreditsChecksService {
       this.logger.warn('Missing TURBO_DEPLOYER_ADDRESS. Skipping deployer Turbo credits checks...')
     }
 
+    // Initialize operator-registry-controller configuration
+    this.relayRewardsAddress = this.config.get<string>('OPERATOR_REGISTRY_CONTROLLER_ADDRESS', { infer: true })
+    if (this.relayRewardsAddress) {
+      this.relayRewardsMinCredits = this.config.get<number>('TURBO_OPERATOR_REGISTRY_MIN_CREDITS', { infer: true })
+      this.relayRewardsMaxCredits = this.config.get<number>('TURBO_OPERATOR_REGISTRY_MAX_CREDITS', { infer: true })
+      this.logger.log(`Initialized Turbo credits checks for operator-registry-controller: [${this.relayRewardsAddress}]`)
+    } else {
+      this.logger.warn('Missing OPERATOR_REGISTRY_CONTROLLER_ADDRESS. Skipping operator-registry-controller Turbo credits checks...')
+    }
+
     // Initialize relay-rewards-controller configuration
     this.relayRewardsAddress = this.config.get<string>('RELAY_REWARDS_CONTROLLER_ADDRESS', { infer: true })
     if (this.relayRewardsAddress) {
