@@ -73,6 +73,12 @@ export class TasksService implements OnApplicationBootstrap {
           opts: TasksService.jobOpts,
         },
         {
+          name: 'check-turbo-operator-registry',
+          queueName: 'operator-checks-balance-checks-queue',
+          data: stamp,
+          opts: TasksService.jobOpts,
+        },
+        {
           name: 'check-turbo-relay-rewards',
           queueName: 'operator-checks-balance-checks-queue',
           data: stamp,

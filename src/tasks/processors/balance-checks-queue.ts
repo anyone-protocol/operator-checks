@@ -21,6 +21,7 @@ export class BalanceChecksQueue extends WorkerHost {
   public static readonly JOB_CHECK_HODLER = 'check-hodler'
   public static readonly JOB_CHECK_REWARDS_POOL = 'check-rewards-pool'
   public static readonly JOB_CHECK_TURBO_DEPLOYER = 'check-turbo-deployer'
+  public static readonly JOB_CHECK_TURBO_OPERATOR_REGISTRY = 'check-turbo-operator-registry'
   public static readonly JOB_CHECK_TURBO_RELAY_REWARDS = 'check-turbo-relay-rewards'
   public static readonly JOB_CHECK_TURBO_STAKING_REWARDS = 'check-turbo-staking-rewards'
   public static readonly JOB_REVIEW_BALANCE_CHECKS = 'review-balance-checks'
@@ -200,6 +201,32 @@ export class BalanceChecksQueue extends WorkerHost {
           ]
         } catch (error) {
           this.logger.error('Failed checking Turbo deployer credits', error.stack)
+          return []
+        }
+
+      case BalanceChecksQueue.JOB_CHECK_TURBO_OPERATOR_REGISTRY:
+        try {
+          const {
+            balance,
+            requestAmount,
+            address
+          } = await this.turboCreditsChecks.checkOperatorRegistryCredits()
+
+          if (requestAmount && address) {
+            await this.tasks.requestRefillTurboCredits(address, requestAmount)
+          }
+
+          return [
+            {
+              stamp: job.data,
+              kind: 'turbo-operator-registry-credits',
+              amount: balance.toString(),
+              requestAmount: requestAmount?.toString() || undefined,
+              address
+            }
+          ]
+        } catch (error) {
+          this.logger.error('Failed checking Turbo operator-registry credits', error.stack)
           return []
         }
 

@@ -13,6 +13,10 @@ export class TurboCreditsChecksService {
   private deployerMinCredits?: number
   private deployerMaxCredits?: number
 
+  private operatorRegistryAddress?: string
+  private operatorRegistryMinCredits?: number
+  private operatorRegistryMaxCredits?: number
+
   private relayRewardsAddress?: string
   private relayRewardsMinCredits?: number
   private relayRewardsMaxCredits?: number
@@ -53,11 +57,11 @@ export class TurboCreditsChecksService {
     }
 
     // Initialize operator-registry-controller configuration
-    this.relayRewardsAddress = this.config.get<string>('OPERATOR_REGISTRY_CONTROLLER_ADDRESS', { infer: true })
-    if (this.relayRewardsAddress) {
-      this.relayRewardsMinCredits = this.config.get<number>('TURBO_OPERATOR_REGISTRY_MIN_CREDITS', { infer: true })
-      this.relayRewardsMaxCredits = this.config.get<number>('TURBO_OPERATOR_REGISTRY_MAX_CREDITS', { infer: true })
-      this.logger.log(`Initialized Turbo credits checks for operator-registry-controller: [${this.relayRewardsAddress}]`)
+    this.operatorRegistryAddress = this.config.get<string>('OPERATOR_REGISTRY_CONTROLLER_ADDRESS', { infer: true })
+    if (this.operatorRegistryAddress) {
+      this.operatorRegistryMinCredits = this.config.get<number>('TURBO_OPERATOR_REGISTRY_MIN_CREDITS', { infer: true })
+      this.operatorRegistryMaxCredits = this.config.get<number>('TURBO_OPERATOR_REGISTRY_MAX_CREDITS', { infer: true })
+      this.logger.log(`Initialized Turbo credits checks for operator-registry-controller: [${this.operatorRegistryAddress}]`)
     } else {
       this.logger.warn('Missing OPERATOR_REGISTRY_CONTROLLER_ADDRESS. Skipping operator-registry-controller Turbo credits checks...')
     }
@@ -93,6 +97,19 @@ export class TurboCreditsChecksService {
       this.deployerMinCredits,
       this.deployerMaxCredits,
       'deployer'
+    )
+  }
+
+  async checkOperatorRegistryCredits(): Promise<{
+    balance: BigNumber
+    requestAmount?: BigNumber
+    address?: string
+  }> {
+    return this.checkCredits(
+      this.operatorRegistryAddress,
+      this.operatorRegistryMinCredits,
+      this.operatorRegistryMaxCredits,
+      'operator-registry-controller'
     )
   }
 
