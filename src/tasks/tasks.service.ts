@@ -116,9 +116,7 @@ export class TasksService implements OnApplicationBootstrap {
     this.logger.log('Bootstrapping Tasks Service')
 
     if (this.clusterService.isTheOne()) {
-      this.logger.log(
-        `I am the leader, checking queue cleanup & immediate queue start`
-      )
+      this.logger.log(`I am the leader, checking queue cleanup & immediate queue start`)
 
       if (this.isLive != 'true') {
         this.logger.log('Cleaning up tasks queue because IS_LIVE is not true')
@@ -133,10 +131,7 @@ export class TasksService implements OnApplicationBootstrap {
       this.logger.log('Queueing immediate balance checks')
       await this.queueCheckBalances({ delayJob: 0 })
     } else {
-      this.logger.log(
-        `Not the leader, skipping queue cleanup check & ` +
-          `skipping queueing immediate balance checks`
-      )
+      this.logger.log(`Not the leader, skipping queue cleanup check & ` + `skipping queueing immediate balance checks`)
     }
   }
 
@@ -146,12 +141,11 @@ export class TasksService implements OnApplicationBootstrap {
       skipActiveCheck?: boolean
     } = {
       delayJob: TasksService.DEFAULT_DELAY,
-      skipActiveCheck: false
-    }
+      skipActiveCheck: false,
+    },
   ): Promise<void> {
     this.logger.log(
-      `Checking jobs in tasks queue before queueing new check balances job ` +
-        `with delay: ${opts.delayJob}ms`
+      `Checking jobs in tasks queue before queueing new check balances job ` + `with delay: ${opts.delayJob}ms`,
     )
     let numJobsInQueue = 0
     numJobsInQueue += await this.tasksQueue.getWaitingCount()
@@ -160,16 +154,11 @@ export class TasksService implements OnApplicationBootstrap {
       numJobsInQueue += await this.tasksQueue.getActiveCount()
     }
     if (numJobsInQueue > 0) {
-      this.logger.warn(
-        `There are ${numJobsInQueue} jobs in the tasks queue, ` +
-          `not queueing new check balances job`
-      )
+      this.logger.warn(`There are ${numJobsInQueue} jobs in the tasks queue, ` + `not queueing new check balances job`)
       return
     }
 
-    this.logger.log(
-      `Queueing check balances job with delay: ${opts.delayJob}ms`
-    )
+    this.logger.log(`Queueing check balances job with delay: ${opts.delayJob}ms`)
     await this.tasksQueue.add(
       'check-balances',
       {},

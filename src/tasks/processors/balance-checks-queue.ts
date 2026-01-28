@@ -9,6 +9,7 @@ import { TasksService } from '../tasks.service'
 import { BundlerChecksService } from 'src/checks/bundler-checks.service'
 import { HodlerChecksService } from 'src/checks/hodler-checks.service'
 import { TurboCreditsChecksService } from 'src/checks/turbo-credits-checks.service'
+import { RefillsService } from 'src/refills/refills.service'
 
 @Processor('operator-checks-balance-checks-queue')
 export class BalanceChecksQueue extends WorkerHost {
@@ -25,7 +26,6 @@ export class BalanceChecksQueue extends WorkerHost {
   public static readonly JOB_CHECK_TURBO_RELAY_REWARDS = 'check-turbo-relay-rewards'
   public static readonly JOB_CHECK_TURBO_STAKING_REWARDS = 'check-turbo-staking-rewards'
   public static readonly JOB_REVIEW_BALANCE_CHECKS = 'review-balance-checks'
-  
 
   constructor(
     private readonly balances: BalancesService,
@@ -34,7 +34,8 @@ export class BalanceChecksQueue extends WorkerHost {
     private readonly bundlerChecks: BundlerChecksService,
     private readonly hodlerChecks: HodlerChecksService,
     private readonly turboCreditsChecks: TurboCreditsChecksService,
-    private readonly tasks: TasksService
+    private readonly tasks: TasksService,
+    private readonly refills: RefillsService,
   ) {
     super()
   }
@@ -45,11 +46,7 @@ export class BalanceChecksQueue extends WorkerHost {
     switch (job.name) {
       case BalanceChecksQueue.JOB_CHECK_RELAY_REGISTRY:
         try {
-          const {
-            balance,
-            requestAmount,
-            address
-          } = await this.relayRegistryChecks.getOperatorBalance()
+          const { balance, requestAmount, address } = await this.relayRegistryChecks.getOperatorBalance()
 
           return [
             {
@@ -57,7 +54,7 @@ export class BalanceChecksQueue extends WorkerHost {
               kind: 'relay-registry-operator-ao-balance',
               amount: balance.toString(),
               address,
-              requestAmount: requestAmount?.toString() || undefined
+              requestAmount: requestAmount?.toString() || undefined,
             },
           ]
         } catch (error) {
@@ -67,11 +64,7 @@ export class BalanceChecksQueue extends WorkerHost {
 
       case BalanceChecksQueue.JOB_CHECK_RELAY_REWARDS:
         try {
-          const {
-            balance,
-            requestAmount,
-            address
-          } = await this.distributionChecks.getRelayRewardsOperatorBalance()
+          const { balance, requestAmount, address } = await this.distributionChecks.getRelayRewardsOperatorBalance()
 
           return [
             {
@@ -79,7 +72,7 @@ export class BalanceChecksQueue extends WorkerHost {
               kind: 'relay-rewards-operator-ao-balance',
               amount: balance.toString(),
               address,
-              requestAmount: requestAmount?.toString() || undefined
+              requestAmount: requestAmount?.toString() || undefined,
             },
           ]
         } catch (error) {
@@ -89,11 +82,7 @@ export class BalanceChecksQueue extends WorkerHost {
 
       case BalanceChecksQueue.JOB_CHECK_STAKING_REWARDS:
         try {
-          const {
-            balance,
-            requestAmount,
-            address
-          } = await this.distributionChecks.getStakingRewardsOperatorBalance()
+          const { balance, requestAmount, address } = await this.distributionChecks.getStakingRewardsOperatorBalance()
 
           return [
             {
@@ -101,7 +90,7 @@ export class BalanceChecksQueue extends WorkerHost {
               kind: 'staking-rewards-operator-ao-balance',
               amount: balance.toString(),
               address,
-              requestAmount: requestAmount?.toString() || undefined
+              requestAmount: requestAmount?.toString() || undefined,
             },
           ]
         } catch (error) {
@@ -111,11 +100,7 @@ export class BalanceChecksQueue extends WorkerHost {
 
       case BalanceChecksQueue.JOB_CHECK_BUNDLER:
         try {
-          const {
-            balance,
-            requestAmount,
-            address
-          } = await this.bundlerChecks.getOperatorBalance()
+          const { balance, requestAmount, address } = await this.bundlerChecks.getOperatorBalance()
 
           if (requestAmount && address) {
             await this.tasks.requestRefillAr(address, requestAmount)
@@ -127,7 +112,7 @@ export class BalanceChecksQueue extends WorkerHost {
               kind: 'bundler-operator-ar-balance',
               amount: balance.toString(),
               requestAmount: requestAmount?.toString() || undefined,
-              address
+              address,
             },
           ]
         } catch (error) {
@@ -145,8 +130,8 @@ export class BalanceChecksQueue extends WorkerHost {
               kind: 'hodler-operator-eth',
               amount: ethCheck.balance.toString(),
               requestAmount: ethCheck.requestAmount?.toString() || undefined,
-              address: ethCheck.address
-            }
+              address: ethCheck.address,
+            },
           ]
         } catch (error) {
           this.logger.error('Failed checking hodler', error.stack)
@@ -158,10 +143,7 @@ export class BalanceChecksQueue extends WorkerHost {
           const rewardsPoolCheck = await this.hodlerChecks.getRewardsPoolTokens()
 
           if (rewardsPoolCheck.requestAmount && rewardsPoolCheck.address) {
-            await this.tasks.requestRefillToken(
-              rewardsPoolCheck.address,
-              rewardsPoolCheck.requestAmount
-            )
+            await this.tasks.requestRefillToken(rewardsPoolCheck.address, rewardsPoolCheck.requestAmount)
           }
 
           return [
@@ -170,8 +152,8 @@ export class BalanceChecksQueue extends WorkerHost {
               kind: 'rewards-pool-tokens',
               amount: rewardsPoolCheck.balance.toString(),
               requestAmount: rewardsPoolCheck.requestAmount?.toString() || undefined,
-              address: rewardsPoolCheck.address
-            }
+              address: rewardsPoolCheck.address,
+            },
           ]
         } catch (error) {
           this.logger.error('Failed checking rewards pool', error.stack)
@@ -180,14 +162,15 @@ export class BalanceChecksQueue extends WorkerHost {
 
       case BalanceChecksQueue.JOB_CHECK_TURBO_DEPLOYER:
         try {
-          const {
-            balance,
-            requestAmount,
-            address
-          } = await this.turboCreditsChecks.checkDeployerCredits()
+          const { balance, requestAmount, address } = await this.turboCreditsChecks.checkDeployerCredits()
 
           if (requestAmount && address) {
-            await this.tasks.requestRefillTurboCredits(address, requestAmount)
+            const hasPending = await this.refills.hasPendingTurboRefill(address)
+            if (hasPending) {
+              this.logger.log(`Skipping turbo-deployer refill for [${address}] - pending transaction exists`)
+            } else {
+              await this.tasks.requestRefillTurboCredits(address, requestAmount)
+            }
           }
 
           return [
@@ -196,8 +179,8 @@ export class BalanceChecksQueue extends WorkerHost {
               kind: 'turbo-deployer-credits',
               amount: balance.toString(),
               requestAmount: requestAmount?.toString() || undefined,
-              address
-            }
+              address,
+            },
           ]
         } catch (error) {
           this.logger.error('Failed checking Turbo deployer credits', error.stack)
@@ -206,14 +189,15 @@ export class BalanceChecksQueue extends WorkerHost {
 
       case BalanceChecksQueue.JOB_CHECK_TURBO_OPERATOR_REGISTRY:
         try {
-          const {
-            balance,
-            requestAmount,
-            address
-          } = await this.turboCreditsChecks.checkOperatorRegistryCredits()
+          const { balance, requestAmount, address } = await this.turboCreditsChecks.checkOperatorRegistryCredits()
 
           if (requestAmount && address) {
-            await this.tasks.requestRefillTurboCredits(address, requestAmount)
+            const hasPending = await this.refills.hasPendingTurboRefill(address)
+            if (hasPending) {
+              this.logger.log(`Skipping turbo-operator-registry refill for [${address}] - pending transaction exists`)
+            } else {
+              await this.tasks.requestRefillTurboCredits(address, requestAmount)
+            }
           }
 
           return [
@@ -222,8 +206,8 @@ export class BalanceChecksQueue extends WorkerHost {
               kind: 'turbo-operator-registry-credits',
               amount: balance.toString(),
               requestAmount: requestAmount?.toString() || undefined,
-              address
-            }
+              address,
+            },
           ]
         } catch (error) {
           this.logger.error('Failed checking Turbo operator-registry credits', error.stack)
@@ -232,14 +216,15 @@ export class BalanceChecksQueue extends WorkerHost {
 
       case BalanceChecksQueue.JOB_CHECK_TURBO_RELAY_REWARDS:
         try {
-          const {
-            balance,
-            requestAmount,
-            address
-          } = await this.turboCreditsChecks.checkRelayRewardsCredits()
+          const { balance, requestAmount, address } = await this.turboCreditsChecks.checkRelayRewardsCredits()
 
           if (requestAmount && address) {
-            await this.tasks.requestRefillTurboCredits(address, requestAmount)
+            const hasPending = await this.refills.hasPendingTurboRefill(address)
+            if (hasPending) {
+              this.logger.log(`Skipping turbo-relay-rewards refill for [${address}] - pending transaction exists`)
+            } else {
+              await this.tasks.requestRefillTurboCredits(address, requestAmount)
+            }
           }
 
           return [
@@ -248,8 +233,8 @@ export class BalanceChecksQueue extends WorkerHost {
               kind: 'turbo-relay-rewards-credits',
               amount: balance.toString(),
               requestAmount: requestAmount?.toString() || undefined,
-              address
-            }
+              address,
+            },
           ]
         } catch (error) {
           this.logger.error('Failed checking Turbo relay-rewards credits', error.stack)
@@ -258,14 +243,15 @@ export class BalanceChecksQueue extends WorkerHost {
 
       case BalanceChecksQueue.JOB_CHECK_TURBO_STAKING_REWARDS:
         try {
-          const {
-            balance,
-            requestAmount,
-            address
-          } = await this.turboCreditsChecks.checkStakingRewardsCredits()
+          const { balance, requestAmount, address } = await this.turboCreditsChecks.checkStakingRewardsCredits()
 
           if (requestAmount && address) {
-            await this.tasks.requestRefillTurboCredits(address, requestAmount)
+            const hasPending = await this.refills.hasPendingTurboRefill(address)
+            if (hasPending) {
+              this.logger.log(`Skipping turbo-staking-rewards refill for [${address}] - pending transaction exists`)
+            } else {
+              await this.tasks.requestRefillTurboCredits(address, requestAmount)
+            }
           }
 
           return [
@@ -274,8 +260,8 @@ export class BalanceChecksQueue extends WorkerHost {
               kind: 'turbo-staking-rewards-credits',
               amount: balance.toString(),
               requestAmount: requestAmount?.toString() || undefined,
-              address
-            }
+              address,
+            },
           ]
         } catch (error) {
           this.logger.error('Failed checking Turbo staking-rewards credits', error.stack)

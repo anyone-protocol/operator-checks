@@ -61,9 +61,13 @@ export class TurboCreditsChecksService {
     if (this.operatorRegistryAddress) {
       this.operatorRegistryMinCredits = this.config.get<number>('TURBO_OPERATOR_REGISTRY_MIN_CREDITS', { infer: true })
       this.operatorRegistryMaxCredits = this.config.get<number>('TURBO_OPERATOR_REGISTRY_MAX_CREDITS', { infer: true })
-      this.logger.log(`Initialized Turbo credits checks for operator-registry-controller: [${this.operatorRegistryAddress}]`)
+      this.logger.log(
+        `Initialized Turbo credits checks for operator-registry-controller: [${this.operatorRegistryAddress}]`,
+      )
     } else {
-      this.logger.warn('Missing OPERATOR_REGISTRY_CONTROLLER_ADDRESS. Skipping operator-registry-controller Turbo credits checks...')
+      this.logger.warn(
+        'Missing OPERATOR_REGISTRY_CONTROLLER_ADDRESS. Skipping operator-registry-controller Turbo credits checks...',
+      )
     }
 
     // Initialize relay-rewards-controller configuration
@@ -73,7 +77,9 @@ export class TurboCreditsChecksService {
       this.relayRewardsMaxCredits = this.config.get<number>('TURBO_RELAY_REWARDS_MAX_CREDITS', { infer: true })
       this.logger.log(`Initialized Turbo credits checks for relay-rewards-controller: [${this.relayRewardsAddress}]`)
     } else {
-      this.logger.warn('Missing RELAY_REWARDS_CONTROLLER_ADDRESS. Skipping relay-rewards-controller Turbo credits checks...')
+      this.logger.warn(
+        'Missing RELAY_REWARDS_CONTROLLER_ADDRESS. Skipping relay-rewards-controller Turbo credits checks...',
+      )
     }
 
     // Initialize staking-rewards-controller configuration
@@ -81,9 +87,13 @@ export class TurboCreditsChecksService {
     if (this.stakingRewardsAddress) {
       this.stakingRewardsMinCredits = this.config.get<number>('TURBO_STAKING_REWARDS_MIN_CREDITS', { infer: true })
       this.stakingRewardsMaxCredits = this.config.get<number>('TURBO_STAKING_REWARDS_MAX_CREDITS', { infer: true })
-      this.logger.log(`Initialized Turbo credits checks for staking-rewards-controller: [${this.stakingRewardsAddress}]`)
+      this.logger.log(
+        `Initialized Turbo credits checks for staking-rewards-controller: [${this.stakingRewardsAddress}]`,
+      )
     } else {
-      this.logger.warn('Missing STAKING_REWARDS_CONTROLLER_ADDRESS. Skipping staking-rewards-controller Turbo credits checks...')
+      this.logger.warn(
+        'Missing STAKING_REWARDS_CONTROLLER_ADDRESS. Skipping staking-rewards-controller Turbo credits checks...',
+      )
     }
   }
 
@@ -92,12 +102,7 @@ export class TurboCreditsChecksService {
     requestAmount?: BigNumber
     address?: string
   }> {
-    return this.checkCredits(
-      this.deployerAddress,
-      this.deployerMinCredits,
-      this.deployerMaxCredits,
-      'deployer'
-    )
+    return this.checkCredits(this.deployerAddress, this.deployerMinCredits, this.deployerMaxCredits, 'deployer')
   }
 
   async checkOperatorRegistryCredits(): Promise<{
@@ -109,7 +114,7 @@ export class TurboCreditsChecksService {
       this.operatorRegistryAddress,
       this.operatorRegistryMinCredits,
       this.operatorRegistryMaxCredits,
-      'operator-registry-controller'
+      'operator-registry-controller',
     )
   }
 
@@ -122,7 +127,7 @@ export class TurboCreditsChecksService {
       this.relayRewardsAddress,
       this.relayRewardsMinCredits,
       this.relayRewardsMaxCredits,
-      'relay-rewards-controller'
+      'relay-rewards-controller',
     )
   }
 
@@ -135,7 +140,7 @@ export class TurboCreditsChecksService {
       this.stakingRewardsAddress,
       this.stakingRewardsMinCredits,
       this.stakingRewardsMaxCredits,
-      'staking-rewards-controller'
+      'staking-rewards-controller',
     )
   }
 
@@ -143,7 +148,7 @@ export class TurboCreditsChecksService {
     address: string | undefined,
     minCredits: number | undefined,
     maxCredits: number | undefined,
-    walletName: string
+    walletName: string,
   ): Promise<{
     balance: BigNumber
     requestAmount?: BigNumber
@@ -162,33 +167,34 @@ export class TurboCreditsChecksService {
     try {
       // Get balance in winc (Winston Credits)
       const { winc } = await this.turboClient.getBalance(address)
-      
+
       // Convert winc (string) to BigNumber and then to Credits (divide by 1e12)
       const wincBalance = BigNumber(winc)
       const creditsBalance = wincBalance.dividedBy(1e12)
 
       if (creditsBalance.lt(BigNumber(minCredits))) {
         this.logger.warn(
-          `Balance depletion on ${walletName} [${address}]: ${creditsBalance.toFixed(6)} Credits < ${minCredits} Credits min`
+          `Balance depletion on ${walletName} [${address}]: ${creditsBalance.toFixed(
+            6,
+          )} Credits < ${minCredits} Credits min`,
         )
-        
+
         return {
           balance: creditsBalance,
           requestAmount: BigNumber(maxCredits).minus(creditsBalance),
-          address
+          address,
         }
       } else if (creditsBalance.gt(BigNumber(maxCredits))) {
         this.logger.warn(
-          `[alarm=balance-accumulation-turbo-${walletName}] Balance accumulation on ${walletName} [${address}]: ${creditsBalance.toFixed(6)} Credits > ${maxCredits} Credits max`
+          `[alarm=balance-accumulation-turbo-${walletName}] Balance accumulation on ${walletName} [${address}]: ${creditsBalance.toFixed(
+            6,
+          )} Credits > ${maxCredits} Credits max`,
         )
       }
 
       return { balance: creditsBalance, address }
     } catch (error) {
-      this.logger.error(
-        `Exception while fetching Turbo credits balance for ${walletName} [${address}]`,
-        error.stack
-      )
+      this.logger.error(`Exception while fetching Turbo credits balance for ${walletName} [${address}]`, error.stack)
       return { balance: BigNumber(0), address }
     }
   }

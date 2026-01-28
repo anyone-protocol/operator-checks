@@ -26,7 +26,7 @@ export class RelayRegistryChecksService {
     }>,
   ) {
     this.isLive = this.config.get<string>('IS_LIVE', { infer: true })
-    
+
     // AO balance checks enabled by default (only disabled when explicitly set to 'false')
     const aoChecksConfig = this.config.get<string>('AO_BALANCE_CHECKS_ENABLED', { infer: true })
     this.aoBalanceChecksEnabled = aoChecksConfig !== 'false'
@@ -49,8 +49,8 @@ export class RelayRegistryChecksService {
   }
 
   async getOperatorBalance(): Promise<{
-    balance: BigNumber,
-    address?: string,
+    balance: BigNumber
+    address?: string
     requestAmount?: BigNumber
   }> {
     if (!this.aoBalanceChecksEnabled) {
@@ -63,32 +63,33 @@ export class RelayRegistryChecksService {
         processId: this.aoTokenProcessId,
         tags: [
           { name: 'Action', value: 'Balance' },
-          { name: 'Recipient', value: this.operatorAddress }
-        ]
+          { name: 'Recipient', value: this.operatorAddress },
+        ],
       })
       // divide by 10e11 to convert from atomic unit to $AO
       const balance = BigNumber(result.Messages[0].Data).div('10e11')
 
       if (balance.lt(this.operatorMinAOBalance)) {
-        this.logger.warn(`Balance depletion on operator registry operator: ${balance} $AO < ${this.operatorMinAOBalance} $AO`)
+        this.logger.warn(
+          `Balance depletion on operator registry operator: ${balance} $AO < ${this.operatorMinAOBalance} $AO`,
+        )
 
         return {
           balance,
           address: this.operatorAddress,
-          requestAmount: BigNumber(this.operatorMaxAOBalance).minus(balance)
+          requestAmount: BigNumber(this.operatorMaxAOBalance).minus(balance),
         }
       } else if (balance.gt(this.operatorMaxAOBalance)) {
-        this.logger.warn(`[alarm=balance-accumulation-ao-operator-registry] Balance accumulation on operator registry operator: ${balance} $AO > ${this.operatorMaxAOBalance} $AO`)
+        this.logger.warn(
+          `[alarm=balance-accumulation-ao-operator-registry] Balance accumulation on operator registry operator: ${balance} $AO > ${this.operatorMaxAOBalance} $AO`,
+        )
       } else {
         this.logger.log(`operator registry operator balance: ${balance} $AO`)
       }
 
       return { balance, address: this.operatorAddress }
     } catch (error) {
-      this.logger.error(
-        `Exception while fetching operator registry operator $AO balance`,
-        error.stack
-      )
+      this.logger.error(`Exception while fetching operator registry operator $AO balance`, error.stack)
     }
 
     return { balance: BigNumber(0), address: this.operatorAddress }

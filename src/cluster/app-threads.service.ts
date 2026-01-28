@@ -10,7 +10,7 @@ export class AppThreadsService {
     cluster.fork({ IS_LOCAL_LEADER: isLocalLeader })
   }
 
-  static parallelize(callback: Function): void {
+  static parallelize(callback: () => void): void {
     if (cluster.isPrimary) {
       const countCPUs = parseInt(process.env.CPU_COUNT || '1')
       const numThreads = Math.min(countCPUs, maxCPUs)
