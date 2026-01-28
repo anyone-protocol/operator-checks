@@ -21,7 +21,7 @@ export class TasksQueue extends WorkerHost {
         this.tasks.balancesFlow.add(TasksService.CHECK_BALANCES_FLOW(Date.now()))
         this.tasks.queueCheckBalances({
           delayJob: TasksService.DEFAULT_DELAY,
-          skipActiveCheck: true
+          skipActiveCheck: true,
         })
         break
 

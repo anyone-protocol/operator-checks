@@ -24,7 +24,7 @@ import { TurboCreditsChecksService } from './turbo-credits-checks.service'
     RelayRegistryChecksService,
     BundlerChecksService,
     HodlerChecksService,
-    TurboCreditsChecksService
+    TurboCreditsChecksService,
   ],
   exports: [
     BalancesService,
@@ -32,7 +32,7 @@ import { TurboCreditsChecksService } from './turbo-credits-checks.service'
     RelayRegistryChecksService,
     BundlerChecksService,
     HodlerChecksService,
-    TurboCreditsChecksService
+    TurboCreditsChecksService,
   ],
 })
 export class ChecksModule {}

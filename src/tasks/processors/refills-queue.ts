@@ -13,10 +13,8 @@ export class RefillsQueue extends WorkerHost {
   public static readonly JOB_REFILL_AR = 'refill-ar'
   public static readonly JOB_REFILL_AO = 'refill-ao'
   public static readonly JOB_REFILL_TURBO_CREDITS = 'refill-turbo-credits'
-  
-  constructor(
-    private readonly refills: RefillsService,
-  ) {
+
+  constructor(private readonly refills: RefillsService) {
     super()
   }
 
