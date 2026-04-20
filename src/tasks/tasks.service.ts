@@ -17,6 +17,7 @@ export class TasksService implements OnApplicationBootstrap {
   static readonly removeOnComplete = true
   static readonly removeOnFail = 8
   static readonly DEFAULT_DELAY = 1000 * 60 * 5 // 5 minutes
+  public readonly recheckDelay: number
 
   public static jobOpts = {
     removeOnComplete: TasksService.removeOnComplete,
@@ -98,6 +99,7 @@ export class TasksService implements OnApplicationBootstrap {
     private readonly config: ConfigService<{
       IS_LIVE: string
       DO_CLEAN: boolean
+      RECHECK_DELAY_MS: string
     }>,
     @InjectQueue('operator-checks-tasks-queue')
     public tasksQueue: Queue,
@@ -110,6 +112,10 @@ export class TasksService implements OnApplicationBootstrap {
   ) {
     this.isLive = this.config.get<string>('IS_LIVE', { infer: true })
     this.doClean = this.config.get<string>('DO_CLEAN', { infer: true })
+    this.recheckDelay = parseInt(
+      this.config.get<string>('RECHECK_DELAY_MS', { infer: true }) ?? '',
+      10,
+    ) || TasksService.DEFAULT_DELAY
   }
 
   async onApplicationBootstrap(): Promise<void> {
@@ -145,7 +151,7 @@ export class TasksService implements OnApplicationBootstrap {
       delayJob?: number
       skipActiveCheck?: boolean
     } = {
-      delayJob: TasksService.DEFAULT_DELAY,
+      delayJob: this.recheckDelay,
       skipActiveCheck: false
     }
   ): Promise<void> {

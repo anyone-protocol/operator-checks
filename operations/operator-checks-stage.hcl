@@ -64,6 +64,7 @@ job "operator-checks-stage" {
         CONSUL_HOST="${NOMAD_IP_http}"
         CONSUL_PORT="8500"
         CONSUL_SERVICE_NAME="operator-checks-stage"
+        RECHECK_DELAY_MS="900000" # 15 minutes
       }
 
       vault {
