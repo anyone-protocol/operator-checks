@@ -14,7 +14,7 @@ export class BalancesData {
   @Prop({ type: String })
   amount: string
 
-  @Prop({ type: String})
+  @Prop({ type: String })
   requestAmount?: string
 
   @Prop({ type: String })

@@ -48,11 +48,11 @@ export async function sendAosDryRun({ processId, data, tags }: SendAosDryRunOpti
       if (error.message.includes('500')) {
         logger.debug(
           `Retrying sending AO DryRun to process ${processId}`,
-          JSON.stringify({ attempts, retries, error: error.message }, undefined, 2)
+          JSON.stringify({ attempts, retries, error: error.message }, undefined, 2),
         )
 
         // NB: Sleep between each attempt with exponential backoff
-        await new Promise(resolve => setTimeout(resolve, 2 ** attempts * 2000))
+        await new Promise((resolve) => setTimeout(resolve, 2 ** attempts * 2000))
 
         attempts++
         lastError = error
@@ -95,11 +95,11 @@ export async function sendAosMessage({ processId, data, tags, signer }: SendAosM
       if (error.message.includes('500')) {
         logger.debug(
           `Retrying sending AO Message to process ${processId}`,
-          JSON.stringify({ attempts, retries, error: error.message }, undefined, 2)
+          JSON.stringify({ attempts, retries, error: error.message }, undefined, 2),
         )
 
         // NB: Sleep between each attempt with exponential backoff
-        await new Promise(resolve => setTimeout(resolve, 2 ** attempts * 2000))
+        await new Promise((resolve) => setTimeout(resolve, 2 ** attempts * 2000))
 
         attempts++
         lastError = error

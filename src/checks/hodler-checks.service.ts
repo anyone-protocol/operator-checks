@@ -36,12 +36,12 @@ export class HodlerChecksService {
       REWARDS_POOL_ADDRESS: string
       REWARDS_POOL_MIN_TOKEN: number
       REWARDS_POOL_MAX_TOKEN: number
-    }>
+    }>,
   ) {
     this.isLive = this.config.get<string>('IS_LIVE', { infer: true })
     this.tokenAddress = this.config.get<string>('TOKEN_CONTRACT_ADDRESS', { infer: true })
-    this.operatorMinEth = ethers.parseEther(this.config.get<string>('HODLER_OPERATOR_MIN_ETH', { infer: true }) || "0")
-    this.operatorMaxEth = ethers.parseEther(this.config.get<string>('HODLER_OPERATOR_MAX_ETH', { infer: true }) || "0")
+    this.operatorMinEth = ethers.parseEther(this.config.get<string>('HODLER_OPERATOR_MIN_ETH', { infer: true }) || '0')
+    this.operatorMaxEth = ethers.parseEther(this.config.get<string>('HODLER_OPERATOR_MAX_ETH', { infer: true }) || '0')
     this.rewardsPoolAddress = this.config.get<string>('REWARDS_POOL_ADDRESS', { infer: true })
     this.rewardsPoolMinToken = this.config.get<number>('REWARDS_POOL_MIN_TOKEN', { infer: true })
     this.rewardsPoolMaxToken = this.config.get<number>('REWARDS_POOL_MAX_TOKEN', { infer: true })
@@ -53,31 +53,17 @@ export class HodlerChecksService {
       this.provider = new ethers.JsonRpcProvider(this.jsonRpc)
 
       if (!this.tokenAddress) {
-        this.logger.error(
-          'Missing TOKEN_CONTRACT_ADDRESS. Skipping hodler checks...'
-        )
+        this.logger.error('Missing TOKEN_CONTRACT_ADDRESS. Skipping hodler checks...')
       } else {
-        this.contract = new ethers.Contract(
-          this.tokenAddress,
-          this.erc20Abi,
-          this.provider
-        )
+        this.contract = new ethers.Contract(this.tokenAddress, this.erc20Abi, this.provider)
       }
 
-      const operatorAddress = this.config.get<string>(
-        'HODLER_OPERATOR_ADDRESS',
-        { infer: true }
-      )
+      const operatorAddress = this.config.get<string>('HODLER_OPERATOR_ADDRESS', { infer: true })
       if (!operatorAddress) {
-        this.logger.error(
-          'Missing HODLER_OPERATOR_ADDRESS. Skipping hodler operator checks...'
-        )
+        this.logger.error('Missing HODLER_OPERATOR_ADDRESS. Skipping hodler operator checks...')
       } else {
         this.operatorAddress = operatorAddress
-        this.logger.log(
-          `Initialized hodler operator checks for address: ` +
-            `[${this.operatorAddress}]`
-        )
+        this.logger.log(`Initialized hodler operator checks for address: ` + `[${this.operatorAddress}]`)
       }
     }
   }
@@ -88,9 +74,7 @@ export class HodlerChecksService {
     requestAmount?: bigint
   }> {
     if (!this.operatorAddress) {
-      this.logger.error(
-        'Hodler operatorAddress is undefined. Unable to check operator balance'
-      )
+      this.logger.error('Hodler operatorAddress is undefined. Unable to check operator balance')
       return { balance: BigInt(0), address: this.operatorAddress }
     }
 
@@ -102,17 +86,32 @@ export class HodlerChecksService {
       }
 
       if (result < this.operatorMinEth) {
-        this.logger.warn(`Balance depletion on hodler operator: ${ethers.formatUnits(result, 18)} $ETH < ${ethers.formatUnits(this.operatorMinEth, 18)} $ETH`)
+        this.logger.warn(
+          `Balance depletion on hodler operator: ${ethers.formatUnits(result, 18)} $ETH < ${ethers.formatUnits(
+            this.operatorMinEth,
+            18,
+          )} $ETH`,
+        )
 
         return {
           balance: result,
           requestAmount: this.operatorMaxEth - result,
-          address: this.operatorAddress
+          address: this.operatorAddress,
         }
       } else if (result > this.operatorMaxEth) {
-        this.logger.warn(`[alarm=balance-accumulation-eth-hodler] Balance accumulation on hodler operator: ${ethers.formatUnits(result, 18)} $ETH > ${ethers.formatUnits(this.operatorMinEth, 18)} $ETH`)
+        this.logger.warn(
+          `[alarm=balance-accumulation-eth-hodler] Balance accumulation on hodler operator: ${ethers.formatUnits(
+            result,
+            18,
+          )} $ETH > ${ethers.formatUnits(this.operatorMinEth, 18)} $ETH`,
+        )
       } else {
-        this.logger.debug(`Checked operator eth ${ethers.formatUnits(result, 18)} vs min: ${ethers.formatUnits(this.operatorMinEth, 18)}`)
+        this.logger.debug(
+          `Checked operator eth ${ethers.formatUnits(result, 18)} vs min: ${ethers.formatUnits(
+            this.operatorMinEth,
+            18,
+          )}`,
+        )
       }
 
       return { balance: result, address: this.operatorAddress }
@@ -134,7 +133,7 @@ export class HodlerChecksService {
     }
 
     try {
-      const result = await this.contract.balanceOf(this.rewardsPoolAddress!)
+      const result = await this.contract.balanceOf(this.rewardsPoolAddress)
       if (!result) {
         this.logger.error(`Failed to fetch rewards pool token balance`)
         return { balance: BigInt(0), address: this.rewardsPoolAddress }
@@ -143,17 +142,29 @@ export class HodlerChecksService {
       const minAmount = ethers.parseUnits(this.rewardsPoolMinToken.toString(), 18)
       const maxAmount = ethers.parseUnits(this.rewardsPoolMaxToken.toString(), 18)
       if (result < minAmount) {
-        this.logger.warn(`Balance depletion on rewards pool token: ${ethers.formatUnits(result, 18)} $ANYONE < ${ethers.formatUnits(minAmount, 18)} $ANYONE`)
+        this.logger.warn(
+          `Balance depletion on rewards pool token: ${ethers.formatUnits(result, 18)} $ANYONE < ${ethers.formatUnits(
+            minAmount,
+            18,
+          )} $ANYONE`,
+        )
 
         return {
           balance: result,
           requestAmount: maxAmount - result,
-          address: this.rewardsPoolAddress
+          address: this.rewardsPoolAddress,
         }
       } else if (result > maxAmount) {
-        this.logger.warn(`[alarm=balance-accumulation-anyonetokens-rewards-pool] Balance accumulation on rewards pool token: ${ethers.formatUnits(result, 18)} $ANYONE > ${ethers.formatUnits(minAmount, 18)} $ANYONE`)
+        this.logger.warn(
+          `[alarm=balance-accumulation-anyonetokens-rewards-pool] Balance accumulation on rewards pool token: ${ethers.formatUnits(
+            result,
+            18,
+          )} $ANYONE > ${ethers.formatUnits(minAmount, 18)} $ANYONE`,
+        )
       } else {
-        this.logger.log(`Checked rewards pool tokens ${ethers.formatUnits(result, 18)} vs min: ${ethers.formatUnits(minAmount, 18)}`)
+        this.logger.log(
+          `Checked rewards pool tokens ${ethers.formatUnits(result, 18)} vs min: ${ethers.formatUnits(minAmount, 18)}`,
+        )
       }
 
       return { balance: result, address: this.rewardsPoolAddress }

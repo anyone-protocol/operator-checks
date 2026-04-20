@@ -36,11 +36,7 @@ import { ClusterModule } from './cluster/cluster.module'
         }>,
       ) => {
         const logger = new Logger(AppModule.name)
-        const redisMode = config.get<string>(
-          'REDIS_MODE',
-          'standalone',
-          { infer: true }
-        )
+        const redisMode = config.get<string>('REDIS_MODE', 'standalone', { infer: true })
 
         let connection: ConnectionOptions = {
           host: config.get<string>('REDIS_HOSTNAME', { infer: true }),
@@ -51,26 +47,17 @@ import { ClusterModule } from './cluster/cluster.module'
           const name = config.get<string>('REDIS_MASTER_NAME', { infer: true })
           const sentinels = [
             {
-              host: config.get<string>(
-                'REDIS_SENTINEL_1_HOST',
-                { infer: true }
-              ),
-              port: config.get<number>('REDIS_SENTINEL_1_PORT', { infer: true })
+              host: config.get<string>('REDIS_SENTINEL_1_HOST', { infer: true }),
+              port: config.get<number>('REDIS_SENTINEL_1_PORT', { infer: true }),
             },
             {
-              host: config.get<string>(
-                'REDIS_SENTINEL_2_HOST',
-                { infer: true }
-              ),
-              port: config.get<number>('REDIS_SENTINEL_2_PORT', { infer: true })
+              host: config.get<string>('REDIS_SENTINEL_2_HOST', { infer: true }),
+              port: config.get<number>('REDIS_SENTINEL_2_PORT', { infer: true }),
             },
             {
-              host: config.get<string>(
-                'REDIS_SENTINEL_3_HOST',
-                { infer: true }
-              ),
-              port: config.get<number>('REDIS_SENTINEL_3_PORT', { infer: true })
-            }
+              host: config.get<string>('REDIS_SENTINEL_3_HOST', { infer: true }),
+              port: config.get<number>('REDIS_SENTINEL_3_PORT', { infer: true }),
+            },
           ]
           connection = { sentinels, name }
         }
@@ -79,7 +66,7 @@ import { ClusterModule } from './cluster/cluster.module'
         logger.log(`Connection: ${JSON.stringify(connection)}`)
 
         return { connection }
-      }
+      },
     }),
     ClusterModule,
     ChecksModule,

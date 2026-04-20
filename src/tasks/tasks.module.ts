@@ -26,9 +26,9 @@ import { ClusterModule } from '../cluster/cluster.module'
       streams: { events: { maxLen: 500 } },
     }),
     BullModule.registerFlowProducer({
-      name: 'operator-checks-balance-checks-flow'
+      name: 'operator-checks-balance-checks-flow',
     }),
-    ClusterModule
+    ClusterModule,
   ],
   providers: [TasksService, TasksQueue, BalanceChecksQueue, RefillsQueue],
   exports: [TasksService],
