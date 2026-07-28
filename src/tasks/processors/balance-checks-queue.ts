@@ -2,8 +2,6 @@ import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq'
 import { Logger } from '@nestjs/common'
 import { Job } from 'bullmq'
 import { BalancesService } from 'src/checks/balances.service'
-import { DistributionChecksService } from 'src/checks/distribution-checks.service'
-import { RelayRegistryChecksService } from 'src/checks/relay-registry-checks.service'
 import { BalancesData } from 'src/checks/schemas/balances-data'
 import { TasksService } from '../tasks.service'
 import { BundlerChecksService } from 'src/checks/bundler-checks.service'
@@ -15,10 +13,7 @@ import { RefillsService } from 'src/refills/refills.service'
 export class BalanceChecksQueue extends WorkerHost {
   private readonly logger = new Logger(BalanceChecksQueue.name)
 
-  public static readonly JOB_CHECK_RELAY_REGISTRY = 'check-relay-registry'
   public static readonly JOB_CHECK_BUNDLER = 'check-bundler'
-  public static readonly JOB_CHECK_RELAY_REWARDS = 'check-relay-rewards'
-  public static readonly JOB_CHECK_STAKING_REWARDS = 'check-staking-rewards'
   public static readonly JOB_CHECK_HODLER = 'check-hodler'
   public static readonly JOB_CHECK_REWARDS_POOL = 'check-rewards-pool'
   public static readonly JOB_CHECK_TURBO_DEPLOYER = 'check-turbo-deployer'
@@ -29,8 +24,6 @@ export class BalanceChecksQueue extends WorkerHost {
 
   constructor(
     private readonly balances: BalancesService,
-    private readonly distributionChecks: DistributionChecksService,
-    private readonly relayRegistryChecks: RelayRegistryChecksService,
     private readonly bundlerChecks: BundlerChecksService,
     private readonly hodlerChecks: HodlerChecksService,
     private readonly turboCreditsChecks: TurboCreditsChecksService,
@@ -44,60 +37,6 @@ export class BalanceChecksQueue extends WorkerHost {
     this.logger.debug(`Dequeueing ${job.name} [${job.id}]`)
 
     switch (job.name) {
-      case BalanceChecksQueue.JOB_CHECK_RELAY_REGISTRY:
-        try {
-          const { balance, requestAmount, address } = await this.relayRegistryChecks.getOperatorBalance()
-
-          return [
-            {
-              stamp: job.data,
-              kind: 'relay-registry-operator-ao-balance',
-              amount: balance.toString(),
-              address,
-              requestAmount: requestAmount?.toString() || undefined,
-            },
-          ]
-        } catch (error) {
-          this.logger.error('Failed checking relay registry', error.stack)
-          return []
-        }
-
-      case BalanceChecksQueue.JOB_CHECK_RELAY_REWARDS:
-        try {
-          const { balance, requestAmount, address } = await this.distributionChecks.getRelayRewardsOperatorBalance()
-
-          return [
-            {
-              stamp: job.data,
-              kind: 'relay-rewards-operator-ao-balance',
-              amount: balance.toString(),
-              address,
-              requestAmount: requestAmount?.toString() || undefined,
-            },
-          ]
-        } catch (error) {
-          this.logger.error('Failed checking relay rewards operator', error.stack)
-          return []
-        }
-
-      case BalanceChecksQueue.JOB_CHECK_STAKING_REWARDS:
-        try {
-          const { balance, requestAmount, address } = await this.distributionChecks.getStakingRewardsOperatorBalance()
-
-          return [
-            {
-              stamp: job.data,
-              kind: 'staking-rewards-operator-ao-balance',
-              amount: balance.toString(),
-              address,
-              requestAmount: requestAmount?.toString() || undefined,
-            },
-          ]
-        } catch (error) {
-          this.logger.error('Failed checking staking rewards operator', error.stack)
-          return []
-        }
-
       case BalanceChecksQueue.JOB_CHECK_BUNDLER:
         try {
           const { balance, requestAmount, address } = await this.bundlerChecks.getOperatorBalance()

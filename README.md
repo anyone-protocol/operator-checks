@@ -125,17 +125,20 @@ so the protocol intentionally does not top it up. We simply keep an eye on it an
 alarm if it drifts outside its `MIN`/`MAX` band. The shortfall is still computed and recorded,
 but no refill is enqueued.
 
-### AO balance checks
+### AO balance checks (removed)
 
-The three AO checks (`check-relay-registry`, `check-relay-rewards`,
-`check-staking-rewards`) read the controllers' $AO token balances via an `aoconnect`
-dry-run against `AO_TOKEN_PROCESS_ID`.
+Three checks (`check-relay-registry`, `check-relay-rewards`, `check-staking-rewards`) used
+to read the controllers' $AO token balances via an `aoconnect` dry-run against a legacynet
+$AO token process, to keep those wallets topped up for message fees.
 
-They are gated by `AO_BALANCE_CHECKS_ENABLED` and are **currently disabled in deployment**
-(`AO_BALANCE_CHECKS_ENABLED="false"`): AO processes do not require $AO for gas/transaction
-fees yet, so there is nothing to keep topped up. The checks remain in place so they can be
-switched on the moment AO begins charging fees. When disabled, these jobs short-circuit and
-report a zero balance.
+They were removed in the HyperBEAM migration (D17). They had already been disabled in both
+live and stage (`AO_BALANCE_CHECKS_ENABLED="false"`) because AO was not charging fees, and
+the migration settles the question: we run our own node and pay no per-message $AO, so there
+is no balance to deplete and nothing for the checks to observe.
+
+Nothing was refilled by them either — unlike the bundler, rewards-pool and Turbo checks,
+they computed a `requestAmount` but never enqueued a refill, so removing them unwinds no
+funding path. This service no longer talks to AO at all.
 
 ---
 
@@ -286,18 +289,13 @@ single-node mode.
 | `BUNDLER_OPERATOR_JWK` | Arweave JWK of the bundler operator being monitored |
 | `BUNDLER_MIN_AR` / `MAX_AR` | $AR thresholds for the bundler |
 
-### AO checks
+### Controller addresses
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AO_BALANCE_CHECKS_ENABLED` | enabled unless `"false"` | Toggles all $AO balance checks (disabled in deployment) |
-| `AO_TOKEN_PROCESS_ID` | — | AO process ID of the $AO token |
-| `OPERATOR_REGISTRY_CONTROLLER_ADDRESS` | — | Operator Registry controller (also used for Turbo check) |
-| `OPERATOR_REGISTRY_OPERATOR_MIN_AO_BALANCE` / `MAX` | — | $AO thresholds |
-| `RELAY_REWARDS_CONTROLLER_ADDRESS` | — | Relay Rewards controller (also used for Turbo check) |
-| `RELAY_REWARDS_OPERATOR_MIN_AO_BALANCE` / `MAX` | — | $AO thresholds |
-| `STAKING_REWARDS_CONTROLLER_ADDRESS` | — | Staking Rewards controller (also used for Turbo check) |
-| `STAKING_REWARDS_OPERATOR_MIN_AO_BALANCE` / `MAX` | — | $AO thresholds |
+| `OPERATOR_REGISTRY_CONTROLLER_ADDRESS` | — | Operator Registry controller (Turbo credits check) |
+| `RELAY_REWARDS_CONTROLLER_ADDRESS` | — | Relay Rewards controller (Turbo credits check) |
+| `STAKING_REWARDS_CONTROLLER_ADDRESS` | — | Staking Rewards controller (Turbo credits check) |
 
 ### Turbo Credits
 

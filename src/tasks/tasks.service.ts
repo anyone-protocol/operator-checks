@@ -32,24 +32,6 @@ export class TasksService implements OnApplicationBootstrap {
       opts: TasksService.jobOpts,
       children: [
         {
-          name: 'check-relay-rewards',
-          queueName: 'operator-checks-balance-checks-queue',
-          data: stamp,
-          opts: TasksService.jobOpts,
-        },
-        {
-          name: 'check-staking-rewards',
-          queueName: 'operator-checks-balance-checks-queue',
-          data: stamp,
-          opts: TasksService.jobOpts,
-        },
-        {
-          name: 'check-relay-registry',
-          queueName: 'operator-checks-balance-checks-queue',
-          data: stamp,
-          opts: TasksService.jobOpts,
-        },
-        {
           name: 'check-bundler',
           queueName: 'operator-checks-balance-checks-queue',
           data: stamp,
