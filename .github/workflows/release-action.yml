@@ -5,6 +5,16 @@ on:
     branches: main
     tags:
       - v*
+  # Manual trigger, so a feature branch can be built without merging to main first. GitHub only
+  # offers this for workflows present on the DEFAULT branch, so the button appears once this file
+  # reaches main; after that it can target any branch. Images are tagged by commit SHA either way,
+  # so a branch build cannot be mistaken for a main one.
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: 'Also run the Nomad job after building (leave off to build only)'
+        type: boolean
+        default: false
 env:
   IMAGE_NAME: operator-checks
 
@@ -48,7 +58,13 @@ jobs:
           docker tag $IMAGE_NAME $IMAGE_ID:$GITHUB_SHA
           docker push $IMAGE_ID:$GITHUB_SHA
 
+      # Deploying is MANUAL for now. A push to main used to build and immediately
+      # `nomad job run` operator-checks-stage (VERSION=stage when the ref is main), and a v* tag
+      # did the same for live, so merging deployed without anyone choosing to. This step now runs
+      # only when a workflow_dispatch explicitly ticks `deploy`; a push builds and pushes the
+      # image and stops there, and the jobspec is run by hand against the SHA-tagged image.
       - name: Deploy new version
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy }}
         env:
           NOMAD_CACERT: operations/admin-ui-ca.crt
           NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN_OPERATOR_CHECKS_DEPLOY }}
