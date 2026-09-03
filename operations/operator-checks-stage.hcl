@@ -1,3 +1,12 @@
+variable "commit_sha" {
+  type        = string
+  description = "The git commit SHA to use for the runtime image tag"
+  // Pinned so the jobspec can be run by hand without passing -var. The release workflow no
+  // longer deploys on push, so nothing substitutes this for us any more; bump it deliberately
+  // when promoting a build, and override with -var=commit_sha=... for a one-off.
+  default     = "763bc7664b8e9c1def209a173801abc981e7a4f6"
+}
+
 job "operator-checks-stage" {
   datacenters = ["ator-fin"]
   type = "service"
@@ -28,12 +37,12 @@ job "operator-checks-stage" {
       driver = "docker"
       config {
         network_mode = "host"
-        image = "ghcr.io/anyone-protocol/operator-checks:[[ .commit_sha ]]"
+        image = "ghcr.io/anyone-protocol/operator-checks:${var.commit_sha}"
       }
 
       env {
         IS_LIVE="true"
-        VERSION="[[ .commit_sha ]]"
+        VERSION = var.commit_sha
 		    PORT="${NOMAD_PORT_http}"
         REDIS_MODE="sentinel"
         REDIS_MASTER_NAME="operator-checks-stage-redis-master"
