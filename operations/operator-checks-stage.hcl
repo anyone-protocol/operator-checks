@@ -55,7 +55,10 @@ job "operator-checks-stage" {
         # discards the upload result, so slots keep advancing and become unpublishable.
         # Measured burn 0.328 AR/day (stage) on 2026-09-03, so min is ~10 days of warning and
         # max ~30 days of runway. Address only: the node's key never leaves the node.
-        HYPERBEAM_NODE_AR_ADDRESS=EbD49sHTtVM3POcTmJBHBvuVzVJjwY6_rW2y0WvWPK0
+        # ⚠️ QUOTED. Unquoted, HCL2 reads a bare word as a variable reference and Nomad
+        # preserves unresolvable ones as a literal "${...}" for runtime interpolation, so the
+        # service received the address wrapped in braces and every balance read 400d.
+        HYPERBEAM_NODE_AR_ADDRESS="EbD49sHTtVM3POcTmJBHBvuVzVJjwY6_rW2y0WvWPK0"
         # MIN/MAX are sized against the AR_SPENDER wallet, not just the node's runway. A refill
         # sends (MAX - balance), and sendArTo compares balance < amount WITHOUT the tx fee, so a
         # MAX close to the spender's balance can pass the check and still fail on chain. The

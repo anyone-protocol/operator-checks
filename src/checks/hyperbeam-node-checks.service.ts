@@ -50,6 +50,14 @@ export class HyperbeamNodeChecksService {
     const address = this.config.get<string>('HYPERBEAM_NODE_AR_ADDRESS', { infer: true })
     if (!address) {
       this.logger.error('Missing HYPERBEAM_NODE_AR_ADDRESS. Skipping hyperbeam node checks...')
+    } else if (!/^[A-Za-z0-9_-]{43}$/.test(address)) {
+      // Caught a real failure: an unquoted HCL value arrived as the literal
+      // "${EbD49sHT...}", every balance read 400d, and nothing alerted. Fail loudly at
+      // startup rather than once per cycle in a way that turned out to be invisible.
+      this.logger.error(
+        `HYPERBEAM_NODE_AR_ADDRESS is not a 43-character Arweave address: [${address}]. ` +
+          `Skipping hyperbeam node checks - the wallet will NOT be monitored or refilled.`,
+      )
     } else {
       this.nodeAddress = address
       this.minBalance = this.config.get<number>('HYPERBEAM_NODE_MIN_AR', { infer: true })
@@ -72,6 +80,18 @@ export class HyperbeamNodeChecksService {
       try {
         const winstonBalance = await this.arweave.wallets.getBalance(this.nodeAddress)
         const arBalance = BigNumber(this.arweave.ar.winstonToAr(winstonBalance))
+
+        // getBalance does NOT throw on a 4xx - it returns the error body, which winstonToAr
+        // turns into the string "NaN". Every BigNumber comparison against NaN is false, so
+        // without this guard a bad address or gateway error skips all three branches, logs
+        // nothing, requests no refill, and looks exactly like a healthy wallet.
+        if (!arBalance.isFinite()) {
+          this.logger.error(
+            `Could not read a balance for hyperbeam node [${this.nodeAddress}]: gateway returned ` +
+              `${JSON.stringify(winstonBalance)}. The wallet is NOT being monitored.`,
+          )
+          return { balance: BigNumber(0), address: this.nodeAddress }
+        }
 
         if (arBalance.lt(BigNumber(HyperbeamNodeChecksService.STOPPED_AR))) {
           this.logger.error(
