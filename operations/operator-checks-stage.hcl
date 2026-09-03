@@ -4,7 +4,7 @@ variable "commit_sha" {
   // Pinned so the jobspec can be run by hand without passing -var. The release workflow no
   // longer deploys on push, so nothing substitutes this for us any more; bump it deliberately
   // when promoting a build, and override with -var=commit_sha=... for a one-off.
-  default     = "763bc7664b8e9c1def209a173801abc981e7a4f6"
+  default     = "68da50e3ff5aa10af4cc6a161aaf138985bf9bbe"
 }
 
 job "operator-checks-stage" {
