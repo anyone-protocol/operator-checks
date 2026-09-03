@@ -32,13 +32,13 @@ export class TasksService implements OnApplicationBootstrap {
       opts: TasksService.jobOpts,
       children: [
         {
-          name: 'check-bundler',
+          name: 'check-hodler',
           queueName: 'operator-checks-balance-checks-queue',
           data: stamp,
           opts: TasksService.jobOpts,
         },
         {
-          name: 'check-hodler',
+          name: 'check-hyperbeam-node',
           queueName: 'operator-checks-balance-checks-queue',
           data: stamp,
           opts: TasksService.jobOpts,

@@ -41,8 +41,19 @@ job "operator-checks-live" {
         HODLER_OPERATOR_MAX_ETH="0.1"
         REWARDS_POOL_MIN_TOKEN=50000
         REWARDS_POOL_MAX_TOKEN=100000
-        BUNDLER_MIN_AR=1
-        BUNDLER_MAX_AR=2
+        # The hyperbeam node's own wallet. Since the nodes self-bundle it pays for EVERY
+        # assignment and message, and an empty one stops publishing SILENTLY - the scheduler
+        # discards the upload result, so slots keep advancing and become unpublishable.
+        # Measured burn 0.238 AR/day (live) on 2026-09-03, so min is ~10 days of warning and
+        # max ~30 days of runway. Address only: the node's key never leaves the node.
+        HYPERBEAM_NODE_AR_ADDRESS=g2O4uQd12vfv0JJPbdz7Vi9eNcGKdZuFXBlBS96MrCQ
+        # MIN/MAX are sized against the AR_SPENDER wallet, not just the node's runway. A refill
+        # sends (MAX - balance), and sendArTo compares balance < amount WITHOUT the tx fee, so a
+        # MAX close to the spender's balance can pass the check and still fail on chain. The
+        # spenders held ~11-16 AR after the 2026-09-03 top-up, so MAX=6 leaves room for about two
+        # refills before they need attention. At 0.238 AR/day a 3 AR top-up is ~12 days of runway of node runway.
+        HYPERBEAM_NODE_MIN_AR=3
+        HYPERBEAM_NODE_MAX_AR=6
         TURBO_DEPLOYER_MIN_CREDITS=0.5
         TURBO_DEPLOYER_MAX_CREDITS=2
         TURBO_OPERATOR_REGISTRY_MIN_CREDITS=0.5
@@ -67,7 +78,6 @@ job "operator-checks-live" {
         data = <<-EOH
         {{- with secret "kv/live-protocol/operator-checks-live" }}
         AR_SPENDER_KEY={{ base64Decode .Data.data.AR_SPENDER_KEY_BASE64 | toJSON }}
-        BUNDLER_OPERATOR_JWK={{ base64Decode .Data.data.BUNDLER_KEY_BASE64 | toJSON }}
         CONSUL_TOKEN_CONTROLLER_CLUSTER="{{.Data.data.CONSUL_TOKEN_CONTROLLER_CLUSTER}}"
         ETH_SPENDER_KEY="{{ .Data.data.ETH_SPENDER_KEY }}"
         HODLER_OPERATOR_ADDRESS="{{ .Data.data.HODLER_OPERATOR_ADDRESS }}"

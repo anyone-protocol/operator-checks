@@ -4,8 +4,8 @@ import { Job } from 'bullmq'
 import { BalancesService } from 'src/checks/balances.service'
 import { BalancesData } from 'src/checks/schemas/balances-data'
 import { TasksService } from '../tasks.service'
-import { BundlerChecksService } from 'src/checks/bundler-checks.service'
 import { HodlerChecksService } from 'src/checks/hodler-checks.service'
+import { HyperbeamNodeChecksService } from 'src/checks/hyperbeam-node-checks.service'
 import { TurboCreditsChecksService } from 'src/checks/turbo-credits-checks.service'
 import { RefillsService } from 'src/refills/refills.service'
 
@@ -13,8 +13,8 @@ import { RefillsService } from 'src/refills/refills.service'
 export class BalanceChecksQueue extends WorkerHost {
   private readonly logger = new Logger(BalanceChecksQueue.name)
 
-  public static readonly JOB_CHECK_BUNDLER = 'check-bundler'
   public static readonly JOB_CHECK_HODLER = 'check-hodler'
+  public static readonly JOB_CHECK_HYPERBEAM_NODE = 'check-hyperbeam-node'
   public static readonly JOB_CHECK_REWARDS_POOL = 'check-rewards-pool'
   public static readonly JOB_CHECK_TURBO_DEPLOYER = 'check-turbo-deployer'
   public static readonly JOB_CHECK_TURBO_OPERATOR_REGISTRY = 'check-turbo-operator-registry'
@@ -24,8 +24,8 @@ export class BalanceChecksQueue extends WorkerHost {
 
   constructor(
     private readonly balances: BalancesService,
-    private readonly bundlerChecks: BundlerChecksService,
     private readonly hodlerChecks: HodlerChecksService,
+    private readonly hyperbeamNodeChecks: HyperbeamNodeChecksService,
     private readonly turboCreditsChecks: TurboCreditsChecksService,
     private readonly tasks: TasksService,
     private readonly refills: RefillsService,
@@ -37,9 +37,9 @@ export class BalanceChecksQueue extends WorkerHost {
     this.logger.debug(`Dequeueing ${job.name} [${job.id}]`)
 
     switch (job.name) {
-      case BalanceChecksQueue.JOB_CHECK_BUNDLER:
+      case BalanceChecksQueue.JOB_CHECK_HYPERBEAM_NODE:
         try {
-          const { balance, requestAmount, address } = await this.bundlerChecks.getOperatorBalance()
+          const { balance, requestAmount, address } = await this.hyperbeamNodeChecks.getNodeBalance()
 
           if (requestAmount && address) {
             await this.tasks.requestRefillAr(address, requestAmount)
@@ -48,14 +48,14 @@ export class BalanceChecksQueue extends WorkerHost {
           return [
             {
               stamp: job.data,
-              kind: 'bundler-operator-ar-balance',
+              kind: 'hyperbeam-node-ar-balance',
               amount: balance.toString(),
               requestAmount: requestAmount?.toString() || undefined,
               address,
             },
           ]
         } catch (error) {
-          this.logger.error('Failed checking bundler', error.stack)
+          this.logger.error('Failed checking hyperbeam node', error.stack)
           return []
         }
 

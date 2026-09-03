@@ -161,9 +161,46 @@ export class RefillsService {
     }
   }
 
+  /**
+   * Balance checks run every RECHECK_DELAY_MS (15 min in stage and live) while an Arweave
+   * transfer takes tens of minutes to mine, and the recipient's balance does not move until
+   * it does. Without a guard the checker therefore sees the same low balance two or three
+   * times and sends the same refill two or three times over.
+   *
+   * ⚠️ This cooldown is in-process, so a restart inside the window loses it and one extra
+   * transfer can go out. That is deliberate rather than overlooked: the residual cost is
+   * over-funding a wallet WE OWN, which the node then spends, not a loss. Making it survive
+   * restarts means persisting the tx id and polling its status, which is not worth the
+   * machinery for that outcome.
+   *
+   * A gateway mempool lookup was tried first and removed: arweave.net GraphQL does NOT return
+   * unconfirmed transactions (verified 2026-09-03 against a live /tx/pending id), so it would
+   * have been dead code that read like protection.
+   */
+  private static readonly AR_SEND_COOLDOWN_MS = 60 * 60 * 1000
+  private recentArSends = new Map<string, number>()
+
+  private isArTransferInFlight(address: string): boolean {
+    const sentAt = this.recentArSends.get(address)
+    if (!sentAt) return false
+
+    const elapsed = Date.now() - sentAt
+    if (elapsed >= RefillsService.AR_SEND_COOLDOWN_MS) return false
+
+    this.logger.warn(
+      `Skipping $AR refill for [${address}]: one was sent ${Math.round(elapsed / 60000)} min ago and ` +
+        `has not confirmed. Sending again would duplicate it.`,
+    )
+    return true
+  }
+
   async sendArTo(address: string, amount: string): Promise<boolean> {
     try {
       if (this.isLive == 'true') {
+        if (this.isArTransferInFlight(address)) {
+          return false
+        }
+
         const arSpenderBalanceWinston = await this.arweave.wallets.getBalance(this.arSpenderAddress)
         const arSpenderBalance = this.arweave.ar.winstonToAr(arSpenderBalanceWinston)
         if (BigNumber(arSpenderBalance).lt(BigNumber(amount))) {
@@ -184,6 +221,7 @@ export class RefillsService {
         const response = await this.arweave.transactions.post(tx)
 
         if (response.status === 200) {
+          this.recentArSends.set(address, Date.now())
           this.logger.log(
             `ArSpender [${this.arSpenderAddress}] finished sending [${amount}] $AR to [${address}] with tx [${tx.id}]`,
           )

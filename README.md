@@ -35,7 +35,7 @@ The flow is a self-rescheduling loop:
 tasks queue                balance-checks flow                 refills queue
 -----------                -------------------                 -------------
 check-balances  ─────────► children:                          refill-ar
-   │                         check-bundler          ──┐         refill-token
+   │                         check-hyperbeam-node   ──┐         refill-token
    │ (re-queues itself       check-hodler             │ shortfall?
    │  every RECHECK_DELAY_MS check-rewards-pool       ├───────► refill-turbo-credits
    │  ms)                    check-relay-registry     │
@@ -91,7 +91,7 @@ vars listed in the [configuration reference](#configuration-reference).
 
 | Check job | Wallet | Chain | Asset | Auto-refill |
 |-----------|--------|-------|-------|-------------|
-| `check-bundler` | Bundler operator | Arweave | $AR | ✅ sends $AR |
+| `check-hyperbeam-node` | HyperBEAM node | Arweave | $AR | ✅ sends $AR |
 | `check-rewards-pool` | Rewards pool | EVM | $ANYONE (ERC-20) | ✅ sends $ANYONE |
 | `check-hodler` | Hodler operator | EVM | $ETH (gas) | ❌ monitor only by design — gas is user-funded |
 | `check-turbo-deployer` | Turbo deployer | ArDrive Turbo | Turbo Credits | ✅ tops up credits |
@@ -112,7 +112,7 @@ Every check writes a [`BalancesData`](src/checks/schemas/balances-data.ts) docum
 | Field | Description |
 |-------|-------------|
 | `stamp` | Epoch-ms timestamp shared by all readings in a single flow run |
-| `kind` | Reading type, e.g. `bundler-operator-ar-balance`, `turbo-deployer-credits` |
+| `kind` | Reading type, e.g. `hyperbeam-node-ar-balance`, `turbo-deployer-credits` |
 | `amount` | Balance at check time (human-readable units, as a string) |
 | `requestAmount` | Shortfall that triggered a refill, if any |
 | `address` | The wallet/address that was checked |
@@ -136,7 +136,7 @@ live and stage (`AO_BALANCE_CHECKS_ENABLED="false"`) because AO was not charging
 the migration settles the question: we run our own node and pay no per-message $AO, so there
 is no balance to deplete and nothing for the checks to observe.
 
-Nothing was refilled by them either — unlike the bundler, rewards-pool and Turbo checks,
+Nothing was refilled by them either — unlike the hyperbeam node, rewards-pool and Turbo checks,
 they computed a `requestAmount` but never enqueued a refill, so removing them unwinds no
 funding path. This service no longer talks to AO at all.
 
@@ -281,13 +281,13 @@ single-node mode.
 | `REWARDS_POOL_ADDRESS` | Wallet whose $ANYONE balance is monitored |
 | `REWARDS_POOL_MIN_TOKEN` / `MAX_TOKEN` | $ANYONE thresholds (whole tokens) |
 
-### Arweave spender & bundler
+### Arweave spender & hyperbeam node
 
 | Variable | Description |
 |----------|-------------|
 | `AR_SPENDER_KEY` | Arweave JWK (JSON) for $AR refills and Turbo top-ups |
-| `BUNDLER_OPERATOR_JWK` | Arweave JWK of the bundler operator being monitored |
-| `BUNDLER_MIN_AR` / `MAX_AR` | $AR thresholds for the bundler |
+| `HYPERBEAM_NODE_AR_ADDRESS` | Address of the node wallet being monitored. Address, not a JWK: a balance read and an incoming transfer need only the public address, so the node's signing key never leaves the node |
+| `HYPERBEAM_NODE_MIN_AR` / `MAX_AR` | $AR thresholds. Size MAX against the SPENDER's balance too, not just node runway: a refill sends `MAX - balance`, and `sendArTo` compares `balance < amount` without the tx fee |
 
 ### Controller addresses
 
@@ -339,6 +339,11 @@ Operationally important conditions are logged with a machine-parseable
   `refill-failed-turbo-credits` / `refill-failed-ao` — a refill transaction failed or the
   spender lacked sufficient balance.
 - `failed-job-<jobName>` — a BullMQ job failed.
+✅ The hyperbeam node check added **no new alarm names and removed none**, so Grafana needs no
+change. Accumulation on the node wallet reuses `balance-accumulation-ar-bundler` (the node IS the
+bundler since it began self-bundling), and depletion is a plain warn like every other check: it
+triggers a refill, and `refill-failed-ar` fires if that refill cannot happen. A node too empty to
+pay for a single upload is logged at error level without its own tag, for the same reason.
 
 ---
 

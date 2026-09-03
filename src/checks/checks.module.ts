@@ -3,8 +3,8 @@ import { MongooseModule } from '@nestjs/mongoose'
 
 import { BalancesService } from './balances.service'
 import { BalancesData, BalancesDataSchema } from './schemas/balances-data'
-import { BundlerChecksService } from './bundler-checks.service'
 import { HodlerChecksService } from './hodler-checks.service'
+import { HyperbeamNodeChecksService } from './hyperbeam-node-checks.service'
 import { TurboCreditsChecksService } from './turbo-credits-checks.service'
 
 @Module({
@@ -18,14 +18,14 @@ import { TurboCreditsChecksService } from './turbo-credits-checks.service'
   ],
   providers: [
     BalancesService,
-    BundlerChecksService,
     HodlerChecksService,
+    HyperbeamNodeChecksService,
     TurboCreditsChecksService,
   ],
   exports: [
     BalancesService,
-    BundlerChecksService,
     HodlerChecksService,
+    HyperbeamNodeChecksService,
     TurboCreditsChecksService,
   ],
 })
