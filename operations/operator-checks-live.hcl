@@ -66,14 +66,6 @@ job "operator-checks-live" {
         # refills before they need attention. At 0.238 AR/day a 3 AR top-up is ~12 days of runway of node runway.
         HYPERBEAM_NODE_MIN_AR=3
         HYPERBEAM_NODE_MAX_AR=6
-        TURBO_DEPLOYER_MIN_CREDITS=0.5
-        TURBO_DEPLOYER_MAX_CREDITS=2
-        TURBO_OPERATOR_REGISTRY_MIN_CREDITS=0.5
-        TURBO_OPERATOR_REGISTRY_MAX_CREDITS=2
-        TURBO_RELAY_REWARDS_MIN_CREDITS=0.5
-        TURBO_RELAY_REWARDS_MAX_CREDITS=2
-        TURBO_STAKING_REWARDS_MIN_CREDITS=0.5
-        TURBO_STAKING_REWARDS_MAX_CREDITS=2
         IS_LOCAL_LEADER="true"
         CPU_COUNT="1"
         CONSUL_HOST="${NOMAD_IP_http}"
@@ -94,11 +86,7 @@ job "operator-checks-live" {
         ETH_SPENDER_KEY="{{ .Data.data.ETH_SPENDER_KEY }}"
         HODLER_OPERATOR_ADDRESS="{{ .Data.data.HODLER_OPERATOR_ADDRESS }}"
         JSON_RPC="{{.Data.data.JSON_RPC}}"
-        OPERATOR_REGISTRY_CONTROLLER_ADDRESS="{{ .Data.data.OPERATOR_REGISTRY_CONTROLLER_ADDRESS }}"
-        RELAY_REWARDS_CONTROLLER_ADDRESS="{{ .Data.data.RELAY_REWARDS_CONTROLLER_ADDRESS }}"
         REWARDS_POOL_ADDRESS="{{ .Data.data.REWARDS_POOL_ADDRESS }}"
-        STAKING_REWARDS_CONTROLLER_ADDRESS="{{ .Data.data.STAKING_REWARDS_CONTROLLER_ADDRESS }}"
-        TURBO_DEPLOYER_ADDRESS="{{ .Data.data.TURBO_DEPLOYER_ADDRESS }}"
         {{- end }}
         EOH
         destination = "secrets/keys.env"

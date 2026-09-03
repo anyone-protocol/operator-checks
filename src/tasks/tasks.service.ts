@@ -31,9 +31,6 @@ export class TasksService implements OnApplicationBootstrap {
       data: stamp,
       opts: TasksService.jobOpts,
       children: [
-        // The four turbo-credits checks are NOT scheduled. Turbo is no longer in use and they
-        // only produced balance-accumulation alarms every 15 minutes. The service, its queue
-        // cases and its refill path are all still here - re-add the children to turn them back on.
         {
           name: 'check-hodler',
           queueName: 'operator-checks-balance-checks-queue',
@@ -164,16 +161,4 @@ export class TasksService implements OnApplicationBootstrap {
     )
   }
 
-  public async requestRefillTurboCredits(address: string, amount: BigNumber): Promise<void> {
-    this.logger.log(`Requesting [${amount.toFixed(6)}] Turbo Credits refill for [${address}]`)
-    await this.refillsQueue.add(
-      'refill-turbo-credits',
-      { turboAddress: address, creditAmount: amount.toString() },
-      {
-        delay: 0,
-        removeOnComplete: TasksService.removeOnComplete,
-        removeOnFail: TasksService.removeOnFail,
-      },
-    )
-  }
 }

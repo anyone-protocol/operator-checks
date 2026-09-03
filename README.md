@@ -3,7 +3,7 @@
 A monitoring and auto-refill service for the [Anyone Protocol](https://anyone.io). It
 periodically checks the balances of the protocol's operator and controller wallets across
 multiple chains (EVM, Arweave, AO) and asset types (native gas tokens, the $ANYONE ERC-20,
-and ArDrive Turbo Credits), records every reading in MongoDB, and automatically tops wallets
+), records every reading in MongoDB, and automatically tops wallets
 back up when they fall below a configured threshold.
 
 The protocol's automated jobs — bundling data to Arweave, paying out relay/staking rewards,
@@ -37,11 +37,10 @@ tasks queue                balance-checks flow                 refills queue
 check-balances  ─────────► children:                          refill-ar
    │                         check-hyperbeam-node   ──┐         refill-token
    │ (re-queues itself       check-hodler             │ shortfall?
-   │  every RECHECK_DELAY_MS check-rewards-pool       ├───────► refill-turbo-credits
+   │  every RECHECK_DELAY_MS check-rewards-pool       ─┘
    │  ms)                    check-relay-registry     │
    └─────────────────────►   check-relay-rewards      │
                              check-staking-rewards    │
-                             check-turbo-* (x4)      ─┘
                              ▼
                            review-balance-checks  ──► store all readings in MongoDB
 ```
@@ -94,10 +93,6 @@ vars listed in the [configuration reference](#configuration-reference).
 | `check-hyperbeam-node` | HyperBEAM node | Arweave | $AR | ✅ sends $AR |
 | `check-rewards-pool` | Rewards pool | EVM | $ANYONE (ERC-20) | ✅ sends $ANYONE |
 | `check-hodler` | Hodler operator | EVM | $ETH (gas) | ❌ monitor only by design — gas is user-funded |
-| `check-turbo-deployer` | Turbo deployer | ArDrive Turbo | Turbo Credits | ✅ tops up credits |
-| `check-turbo-operator-registry` | Operator Registry controller | ArDrive Turbo | Turbo Credits | ✅ tops up credits |
-| `check-turbo-relay-rewards` | Relay Rewards controller | ArDrive Turbo | Turbo Credits | ✅ tops up credits |
-| `check-turbo-staking-rewards` | Staking Rewards controller | ArDrive Turbo | Turbo Credits | ✅ tops up credits |
 | `check-relay-registry` | Operator Registry controller | AO | $AO | ⚠️ monitor only — [see below](#ao-balance-checks) |
 | `check-relay-rewards` | Relay Rewards controller | AO | $AO | ⚠️ monitor only |
 | `check-staking-rewards` | Staking Rewards controller | AO | $AO | ⚠️ monitor only |
@@ -112,7 +107,7 @@ Every check writes a [`BalancesData`](src/checks/schemas/balances-data.ts) docum
 | Field | Description |
 |-------|-------------|
 | `stamp` | Epoch-ms timestamp shared by all readings in a single flow run |
-| `kind` | Reading type, e.g. `hyperbeam-node-ar-balance`, `turbo-deployer-credits` |
+| `kind` | Reading type, e.g. `hyperbeam-node-ar-balance`, `hodler-operator-eth-balance` |
 | `amount` | Balance at check time (human-readable units, as a string) |
 | `requestAmount` | Shortfall that triggered a refill, if any |
 | `address` | The wallet/address that was checked |
@@ -136,7 +131,7 @@ live and stage (`AO_BALANCE_CHECKS_ENABLED="false"`) because AO was not charging
 the migration settles the question: we run our own node and pay no per-message $AO, so there
 is no balance to deplete and nothing for the checks to observe.
 
-Nothing was refilled by them either — unlike the hyperbeam node, rewards-pool and Turbo checks,
+Nothing was refilled by them either — unlike the hyperbeam node and rewards-pool checks,
 they computed a `requestAmount` but never enqueued a refill, so removing them unwinds no
 funding path. This service no longer talks to AO at all.
 
@@ -152,22 +147,25 @@ makes it safe to run the full pipeline against real RPCs without moving funds.
 |------------|-------|---------|-------|
 | `refill-ar` | $AR | `AR_SPENDER_KEY` (Arweave JWK) | Verifies the spender has enough $AR before sending |
 | `refill-token` | $ANYONE | `ETH_SPENDER_KEY` (EVM key) | ERC-20 `transfer` on `TOKEN_CONTRACT_ADDRESS` |
-| `refill-turbo-credits` | Turbo Credits | `AR_SPENDER_KEY` | Tops up another address's credits by spending $AR via the Turbo SDK |
 | `refill-eth` | $ETH | `ETH_SPENDER_KEY` | Implemented but intentionally not enqueued — the hodler's gas is user-funded, so we only monitor it |
 | `refill-ao` | $AO | — | Stub only — [see roadmap](#roadmap--not-yet-wired) |
 
 See [refills.service.ts](src/refills/refills.service.ts) and
 [refills-queue.ts](src/tasks/processors/refills-queue.ts).
 
-### Turbo refill de-duplication
+### $AR refill de-duplication
 
-Turbo top-ups can take time to confirm, and the check loop runs faster than confirmation.
-To avoid stacking duplicate refills, before each Turbo top-up the service queries Arweave
-GraphQL for recent refill transactions (tagged with the destination address) from the AR
-spender and checks their status via the Turbo SDK. If a transaction is still `pending`
-within `PENDING_TURBO_REFILL_TTL_MS` (default 2h), the new refill is skipped. On any error
-it errs on the side of skipping, to avoid double-funding. See `hasPendingTurboRefill` in
-[refills.service.ts](src/refills/refills.service.ts).
+An Arweave transfer takes tens of minutes to mine and the recipient's balance does not move
+until it does, while the check loop runs every `RECHECK_DELAY_MS` (15 min). Without a guard the
+same low balance is seen two or three times and the same refill is sent two or three times over.
+`sendArTo` therefore skips a refill for an address it sent to within the last hour. See
+`isArTransferInFlight` in [refills.service.ts](src/refills/refills.service.ts).
+
+⚠️ That cooldown is in-process, so a restart inside the window can let one extra transfer out.
+Accepted deliberately: the cost is over-funding a wallet we own, which the node then spends.
+The removed Turbo de-duplication used an Arweave GraphQL lookback over recent *mined* transfers,
+which survives restarts — worth adopting here if that ever matters (see `hasPendingTurboRefill`
+in git history).
 
 ---
 
@@ -285,28 +283,9 @@ single-node mode.
 
 | Variable | Description |
 |----------|-------------|
-| `AR_SPENDER_KEY` | Arweave JWK (JSON) for $AR refills and Turbo top-ups |
+| `AR_SPENDER_KEY` | Arweave JWK (JSON) for $AR refills |
 | `HYPERBEAM_NODE_AR_ADDRESS` | Address of the node wallet being monitored. Address, not a JWK: a balance read and an incoming transfer need only the public address, so the node's signing key never leaves the node |
 | `HYPERBEAM_NODE_MIN_AR` / `MAX_AR` | $AR thresholds. Size MAX against the SPENDER's balance too, not just node runway: a refill sends `MAX - balance`, and `sendArTo` compares `balance < amount` without the tx fee |
-
-### Controller addresses
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OPERATOR_REGISTRY_CONTROLLER_ADDRESS` | — | Operator Registry controller (Turbo credits check) |
-| `RELAY_REWARDS_CONTROLLER_ADDRESS` | — | Relay Rewards controller (Turbo credits check) |
-| `STAKING_REWARDS_CONTROLLER_ADDRESS` | — | Staking Rewards controller (Turbo credits check) |
-
-### Turbo Credits
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `TURBO_DEPLOYER_ADDRESS` | — | Turbo deployer wallet |
-| `TURBO_DEPLOYER_MIN_CREDITS` / `MAX_CREDITS` | — | Credit thresholds |
-| `TURBO_OPERATOR_REGISTRY_MIN_CREDITS` / `MAX_CREDITS` | — | Credit thresholds (address from `OPERATOR_REGISTRY_CONTROLLER_ADDRESS`) |
-| `TURBO_RELAY_REWARDS_MIN_CREDITS` / `MAX_CREDITS` | — | Credit thresholds (address from `RELAY_REWARDS_CONTROLLER_ADDRESS`) |
-| `TURBO_STAKING_REWARDS_MIN_CREDITS` / `MAX_CREDITS` | — | Credit thresholds (address from `STAKING_REWARDS_CONTROLLER_ADDRESS`) |
-| `PENDING_TURBO_REFILL_TTL_MS` | `7200000` (2h) | Window for treating a recent Turbo refill as still pending |
 
 ---
 
@@ -335,9 +314,8 @@ Operationally important conditions are logged with a machine-parseable
 
 - `balance-accumulation-*` — a monitored wallet is *above* its `MAX` threshold (funds may be
   stuck or thresholds misconfigured).
-- `refill-failed-eth` / `refill-failed-anyonetokens` / `refill-failed-ar` /
-  `refill-failed-turbo-credits` / `refill-failed-ao` — a refill transaction failed or the
-  spender lacked sufficient balance.
+- `refill-failed-eth` / `refill-failed-anyonetokens` / `refill-failed-ar` / `refill-failed-ao`
+  — a refill transaction failed or the spender lacked sufficient balance.
 - `failed-job-<jobName>` — a BullMQ job failed.
 ✅ The hyperbeam node check added **no new alarm names and removed none**, so Grafana needs no
 change. Accumulation on the node wallet reuses `balance-accumulation-ar-bundler` (the node IS the
