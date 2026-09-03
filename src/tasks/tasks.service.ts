@@ -31,6 +31,9 @@ export class TasksService implements OnApplicationBootstrap {
       data: stamp,
       opts: TasksService.jobOpts,
       children: [
+        // The four turbo-credits checks are NOT scheduled. Turbo is no longer in use and they
+        // only produced balance-accumulation alarms every 15 minutes. The service, its queue
+        // cases and its refill path are all still here - re-add the children to turn them back on.
         {
           name: 'check-hodler',
           queueName: 'operator-checks-balance-checks-queue',
@@ -45,30 +48,6 @@ export class TasksService implements OnApplicationBootstrap {
         },
         {
           name: 'check-rewards-pool',
-          queueName: 'operator-checks-balance-checks-queue',
-          data: stamp,
-          opts: TasksService.jobOpts,
-        },
-        {
-          name: 'check-turbo-deployer',
-          queueName: 'operator-checks-balance-checks-queue',
-          data: stamp,
-          opts: TasksService.jobOpts,
-        },
-        {
-          name: 'check-turbo-operator-registry',
-          queueName: 'operator-checks-balance-checks-queue',
-          data: stamp,
-          opts: TasksService.jobOpts,
-        },
-        {
-          name: 'check-turbo-relay-rewards',
-          queueName: 'operator-checks-balance-checks-queue',
-          data: stamp,
-          opts: TasksService.jobOpts,
-        },
-        {
-          name: 'check-turbo-staking-rewards',
           queueName: 'operator-checks-balance-checks-queue',
           data: stamp,
           opts: TasksService.jobOpts,
