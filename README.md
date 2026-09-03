@@ -161,11 +161,15 @@ same low balance is seen two or three times and the same refill is sent two or t
 `sendArTo` therefore skips a refill for an address it sent to within the last hour. See
 `isArTransferInFlight` in [refills.service.ts](src/refills/refills.service.ts).
 
-⚠️ That cooldown is in-process, so a restart inside the window can let one extra transfer out.
-Accepted deliberately: the cost is over-funding a wallet we own, which the node then spends.
-The removed Turbo de-duplication used an Arweave GraphQL lookback over recent *mined* transfers,
-which survives restarts — worth adopting here if that ever matters (see `hasPendingTurboRefill`
-in git history).
+A second guard, `hasRecentArTransfer`, queries Arweave GraphQL for transfers from the AR spender
+to that address within `AR_REFILL_LOOKBACK_MS` (default 2h) and skips if it finds one. This is the
+half that **survives a restart**, which the in-process cooldown cannot.
+
+Neither is sufficient alone. arweave.net GraphQL does not index the mempool, so the lookback sees
+mined transfers only and the cooldown covers the unconfirmed window. The one remaining gap is a
+restart *during* that window; the cost there is over-funding a wallet we own, which the node then
+spends. Both guards return "in flight" on any error — a failed lookup must never license a second
+spend.
 
 ---
 
@@ -284,6 +288,7 @@ single-node mode.
 | Variable | Description |
 |----------|-------------|
 | `AR_SPENDER_KEY` | Arweave JWK (JSON) for $AR refills |
+| `AR_REFILL_LOOKBACK_MS` | `7200000` (2h) | Window in which an existing $AR transfer to the same address blocks a new refill |
 | `HYPERBEAM_NODE_AR_ADDRESS` | Address of the node wallet being monitored. Address, not a JWK: a balance read and an incoming transfer need only the public address, so the node's signing key never leaves the node |
 | `HYPERBEAM_NODE_MIN_AR` / `MAX_AR` | $AR thresholds. Size MAX against the SPENDER's balance too, not just node runway: a refill sends `MAX - balance`, and `sendArTo` compares `balance < amount` without the tx fee |
 

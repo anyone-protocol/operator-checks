@@ -5,6 +5,23 @@ import { JWKInterface } from 'arweave/node/lib/wallet'
 import BigNumber from 'bignumber.js'
 import { ethers } from 'ethers'
 
+interface GraphQLTransaction {
+  id: string
+  block?: {
+    timestamp: number
+  }
+}
+
+interface GraphQLResponse {
+  data?: {
+    transactions?: {
+      edges?: Array<{
+        node: GraphQLTransaction
+      }>
+    }
+  }
+}
+
 
 @Injectable()
 export class RefillsService {
@@ -21,6 +38,8 @@ export class RefillsService {
   private arweave: Arweave
   private arSpender: JWKInterface
   private arSpenderAddress: string
+  private arweaveGatewayUrl: string
+  private arRefillLookbackMs: number
 
   constructor(
     private readonly config: ConfigService<{
@@ -29,6 +48,7 @@ export class RefillsService {
       JSON_RPC: string
       ETH_SPENDER_KEY: string
       AR_SPENDER_KEY: string
+      AR_REFILL_LOOKBACK_MS: number
       ARWEAVE_GATEWAY_PROTOCOL: string
       ARWEAVE_GATEWAY_HOST: string
       ARWEAVE_GATEWAY_PORT: number
@@ -66,6 +86,9 @@ export class RefillsService {
       protocol: arweaveProtocol,
     }
     this.arweave = Arweave.init(arweaveConfig)
+    this.arweaveGatewayUrl = `${arweaveProtocol}://${arweaveHost}${arweavePort !== 443 ? `:${arweavePort}` : ''}`
+    this.arRefillLookbackMs =
+      this.config.get<number>('AR_REFILL_LOOKBACK_MS', { infer: true }) || 7200000 // 2 hours default
     try {
       this.arweave.wallets.jwkToAddress(this.arSpender).then((address) => {
         this.arSpenderAddress = address
@@ -170,10 +193,90 @@ export class RefillsService {
     return true
   }
 
+  /**
+   * Has the spender already sent $AR to this address recently?
+   *
+   * This is the half of the de-duplication that SURVIVES A RESTART, which the in-process
+   * cooldown above cannot. Recovered from the Turbo refill path removed in b03427b, which
+   * used the same lookback.
+   *
+   * ⚠️ arweave.net GraphQL does NOT index the mempool (verified 2026-09-03 by querying a live
+   * /tx/pending id and getting nothing back), so in practice this sees MINED transfers only.
+   * The unconfirmed window is what the in-process cooldown covers. A restart during that
+   * window is the one remaining gap, and it over-funds a wallet we own rather than losing
+   * anything.
+   *
+   * Returns true on ANY error: a failed lookup must never license a second spend.
+   */
+  private async hasRecentArTransfer(address: string): Promise<boolean> {
+    const query = `
+      query {
+        transactions(
+          owners: ["${this.arSpenderAddress}"]
+          recipients: ["${address}"]
+          first: 10
+        ) {
+          edges {
+            node {
+              id
+              block {
+                timestamp
+              }
+            }
+          }
+        }
+      }
+    `
+
+    try {
+      const response = await fetch(`${this.arweaveGatewayUrl}/graphql`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+        signal: AbortSignal.timeout(30_000),
+      })
+      if (!response.ok) {
+        throw new Error(`GraphQL request failed: ${response.status} ${response.statusText}`)
+      }
+
+      const result: GraphQLResponse = await response.json()
+      const edges = result.data?.transactions?.edges || []
+      const cutoff = Date.now() - this.arRefillLookbackMs
+
+      const recent = edges
+        .map((edge) => edge.node)
+        // no block yet means unconfirmed, which counts as in flight
+        .filter((tx) => !tx.block?.timestamp || tx.block.timestamp * 1000 > cutoff)
+
+      if (recent.length > 0) {
+        this.logger.warn(
+          `Skipping $AR refill for [${address}]: [${recent[0].id}] was already sent within the ` +
+            `last ${Math.round(this.arRefillLookbackMs / 60000)} min.`,
+        )
+        return true
+      }
+
+      return false
+    } catch (error) {
+      this.logger.error(
+        `Could not check for a recent $AR transfer to [${address}]; skipping the refill rather ` +
+          `than risking a duplicate`,
+        error.stack,
+      )
+      return true
+    }
+  }
+
   async sendArTo(address: string, amount: string): Promise<boolean> {
     try {
       if (this.isLive == 'true') {
+        // Two guards: the cooldown covers the unconfirmed window a gateway cannot show us,
+        // the lookback survives a restart. Neither is sufficient alone.
         if (this.isArTransferInFlight(address)) {
+          return false
+        }
+
+        if (await this.hasRecentArTransfer(address)) {
           return false
         }
 
