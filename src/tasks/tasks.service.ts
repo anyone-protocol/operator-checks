@@ -32,61 +32,19 @@ export class TasksService implements OnApplicationBootstrap {
       opts: TasksService.jobOpts,
       children: [
         {
-          name: 'check-relay-rewards',
-          queueName: 'operator-checks-balance-checks-queue',
-          data: stamp,
-          opts: TasksService.jobOpts,
-        },
-        {
-          name: 'check-staking-rewards',
-          queueName: 'operator-checks-balance-checks-queue',
-          data: stamp,
-          opts: TasksService.jobOpts,
-        },
-        {
-          name: 'check-relay-registry',
-          queueName: 'operator-checks-balance-checks-queue',
-          data: stamp,
-          opts: TasksService.jobOpts,
-        },
-        {
-          name: 'check-bundler',
-          queueName: 'operator-checks-balance-checks-queue',
-          data: stamp,
-          opts: TasksService.jobOpts,
-        },
-        {
           name: 'check-hodler',
           queueName: 'operator-checks-balance-checks-queue',
           data: stamp,
           opts: TasksService.jobOpts,
         },
         {
+          name: 'check-hyperbeam-node',
+          queueName: 'operator-checks-balance-checks-queue',
+          data: stamp,
+          opts: TasksService.jobOpts,
+        },
+        {
           name: 'check-rewards-pool',
-          queueName: 'operator-checks-balance-checks-queue',
-          data: stamp,
-          opts: TasksService.jobOpts,
-        },
-        {
-          name: 'check-turbo-deployer',
-          queueName: 'operator-checks-balance-checks-queue',
-          data: stamp,
-          opts: TasksService.jobOpts,
-        },
-        {
-          name: 'check-turbo-operator-registry',
-          queueName: 'operator-checks-balance-checks-queue',
-          data: stamp,
-          opts: TasksService.jobOpts,
-        },
-        {
-          name: 'check-turbo-relay-rewards',
-          queueName: 'operator-checks-balance-checks-queue',
-          data: stamp,
-          opts: TasksService.jobOpts,
-        },
-        {
-          name: 'check-turbo-staking-rewards',
           queueName: 'operator-checks-balance-checks-queue',
           data: stamp,
           opts: TasksService.jobOpts,
@@ -136,6 +94,9 @@ export class TasksService implements OnApplicationBootstrap {
 
       this.logger.log('Queueing immediate balance checks')
       await this.queueCheckBalances({ delayJob: 0 })
+
+      this.logger.log('Queueing immediate publishing checks')
+      await this.queueCheckPublishing({ delayJob: 0 })
     } else {
       this.logger.log(`Not the leader, skipping queue cleanup check & ` + `skipping queueing immediate balance checks`)
     }
@@ -176,6 +137,26 @@ export class TasksService implements OnApplicationBootstrap {
     )
   }
 
+  /**
+   * Publishing checks ride the same tasks queue and cadence as the balance checks, but do NOT go
+   * through the balance-checks FLOW: there is nothing to fan out and nothing to aggregate, and the
+   * flow's queue name is about balances.
+   */
+  public async queueCheckPublishing(
+    opts: { delayJob?: number } = { delayJob: this.recheckDelay },
+  ): Promise<void> {
+    this.logger.log(`Queueing check publishing job with delay: ${opts.delayJob}ms`)
+    await this.tasksQueue.add(
+      'check-publishing',
+      {},
+      {
+        delay: opts.delayJob,
+        removeOnComplete: TasksService.removeOnComplete,
+        removeOnFail: TasksService.removeOnFail,
+      },
+    )
+  }
+
   public async requestRefillAr(address: string, amount: BigNumber) {
     this.logger.log(`Requesting [${amount}] $AR refill for [${address}]`)
     await this.refillsQueue.add(
@@ -203,16 +184,4 @@ export class TasksService implements OnApplicationBootstrap {
     )
   }
 
-  public async requestRefillTurboCredits(address: string, amount: BigNumber): Promise<void> {
-    this.logger.log(`Requesting [${amount.toFixed(6)}] Turbo Credits refill for [${address}]`)
-    await this.refillsQueue.add(
-      'refill-turbo-credits',
-      { turboAddress: address, creditAmount: amount.toString() },
-      {
-        delay: 0,
-        removeOnComplete: TasksService.removeOnComplete,
-        removeOnFail: TasksService.removeOnFail,
-      },
-    )
-  }
 }

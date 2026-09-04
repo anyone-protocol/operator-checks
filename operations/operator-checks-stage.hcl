@@ -1,3 +1,12 @@
+variable "commit_sha" {
+  type        = string
+  description = "The git commit SHA to use for the runtime image tag"
+  // Pinned so the jobspec can be run by hand without passing -var. The release workflow no
+  // longer deploys on push, so nothing substitutes this for us any more; bump it deliberately
+  // when promoting a build, and override with -var=commit_sha=... for a one-off.
+  default     = "93fe6c69a3ad8fc463286bb5a03b909a0ceb7cc2"
+}
+
 job "operator-checks-stage" {
   datacenters = ["ator-fin"]
   type = "service"
@@ -28,37 +37,42 @@ job "operator-checks-stage" {
       driver = "docker"
       config {
         network_mode = "host"
-        image = "ghcr.io/anyone-protocol/operator-checks:[[ .commit_sha ]]"
+        image = "ghcr.io/anyone-protocol/operator-checks:${var.commit_sha}"
       }
 
       env {
         IS_LIVE="true"
-        VERSION="[[ .commit_sha ]]"
+        VERSION = var.commit_sha
 		    PORT="${NOMAD_PORT_http}"
         REDIS_MODE="sentinel"
         REDIS_MASTER_NAME="operator-checks-stage-redis-master"
-        AO_BALANCE_CHECKS_ENABLED="false"
         HODLER_OPERATOR_MIN_ETH="1"
         HODLER_OPERATOR_MAX_ETH="5"
         REWARDS_POOL_MIN_TOKEN=100000
         REWARDS_POOL_MAX_TOKEN=250000
-        BUNDLER_MIN_AR=1
-        BUNDLER_MAX_AR=2
-        OPERATOR_REGISTRY_OPERATOR_MIN_AO_BALANCE=100
-        OPERATOR_REGISTRY_OPERATOR_MAX_AO_BALANCE=1000
-        RELAY_REWARDS_OPERATOR_MIN_AO_BALANCE=100
-        RELAY_REWARDS_OPERATOR_MAX_AO_BALANCE=1000
-        STAKING_REWARDS_OPERATOR_MIN_AO_BALANCE=100
-        STAKING_REWARDS_OPERATOR_MAX_AO_BALANCE=1000
-        TURBO_DEPLOYER_MIN_CREDITS=0.5
-        TURBO_DEPLOYER_MAX_CREDITS=2
-        TURBO_OPERATOR_REGISTRY_MIN_CREDITS=0.5
-        TURBO_OPERATOR_REGISTRY_MAX_CREDITS=2
-        TURBO_RELAY_REWARDS_MIN_CREDITS=0.5
-        TURBO_RELAY_REWARDS_MAX_CREDITS=2
-        TURBO_STAKING_REWARDS_MIN_CREDITS=0.5
-        TURBO_STAKING_REWARDS_MAX_CREDITS=2
-        AO_TOKEN_PROCESS_ID="0syT13r0s0tgPmIed95bJnuSqaD29HQNN8D3ElLSrsc"
+        # The hyperbeam node's own wallet. Since the nodes self-bundle it pays for EVERY
+        # assignment and message, and an empty one stops publishing SILENTLY - the scheduler
+        # discards the upload result, so slots keep advancing and become unpublishable.
+        # Measured burn 0.328 AR/day (stage) on 2026-09-03, so min is ~10 days of warning and
+        # max ~30 days of runway. Address only: the node's key never leaves the node.
+        # ⚠️ QUOTED. Unquoted, HCL2 reads a bare word as a variable reference and Nomad
+        # preserves unresolvable ones as a literal "${...}" for runtime interpolation, so the
+        # service received the address wrapped in braces and every balance read 400d.
+        HYPERBEAM_NODE_AR_ADDRESS="EbD49sHTtVM3POcTmJBHBvuVzVJjwY6_rW2y0WvWPK0"
+        # MIN/MAX are sized against the AR_SPENDER wallet, not just the node's runway. A refill
+        # sends (MAX - balance), and sendArTo compares balance < amount WITHOUT the tx fee, so a
+        # MAX close to the spender's balance can pass the check and still fail on chain. The
+        # spenders held ~11-16 AR after the 2026-09-03 top-up, so MAX=6 leaves room for about two
+        # refills before they need attention. At 0.328 AR/day a 3 AR top-up is ~9 days of runway of node runway.
+        # D25 publishing reliability. Lag is measured as the AGE of the newest published
+        # assignment, so 1800000 = 3 bundler flush cycles, not 3 slots.
+        PUBLISHING_LAG_ALERT_MS="1800000"
+        CHECKPOINT_MAX_AGE_MS="172800000"
+        # goldsky serves GraphQL but 404s on /<id>, so it is an INDEX only, never a data gateway.
+        PUBLIC_ARWEAVE_GATEWAYS="https://arweave.net"
+        PUBLIC_ARWEAVE_INDEXES="https://arweave.net,https://arweave-search.goldsky.com"
+        HYPERBEAM_NODE_MIN_AR=3
+        HYPERBEAM_NODE_MAX_AR=6
         IS_LOCAL_LEADER="true"
         CPU_COUNT="1"
         CONSUL_HOST="${NOMAD_IP_http}"
@@ -75,16 +89,11 @@ job "operator-checks-stage" {
         data = <<-EOH
         {{- with secret "kv/stage-protocol/operator-checks-stage" }}
         AR_SPENDER_KEY={{ base64Decode .Data.data.AR_SPENDER_KEY_BASE64 | toJSON }}
-        BUNDLER_OPERATOR_JWK={{ base64Decode .Data.data.BUNDLER_KEY_BASE64 | toJSON }}
         CONSUL_TOKEN_CONTROLLER_CLUSTER="{{.Data.data.CONSUL_TOKEN_CONTROLLER_CLUSTER}}"
         ETH_SPENDER_KEY="{{ .Data.data.ETH_SPENDER_KEY }}"
         HODLER_OPERATOR_ADDRESS="{{ .Data.data.HODLER_OPERATOR_ADDRESS }}"
         JSON_RPC="{{.Data.data.JSON_RPC}}"
-        OPERATOR_REGISTRY_CONTROLLER_ADDRESS="{{ .Data.data.OPERATOR_REGISTRY_CONTROLLER_ADDRESS }}"
-        RELAY_REWARDS_CONTROLLER_ADDRESS="{{ .Data.data.RELAY_REWARDS_CONTROLLER_ADDRESS }}"
         REWARDS_POOL_ADDRESS="{{ .Data.data.REWARDS_POOL_ADDRESS }}"
-        STAKING_REWARDS_CONTROLLER_ADDRESS="{{ .Data.data.STAKING_REWARDS_CONTROLLER_ADDRESS }}"
-        TURBO_DEPLOYER_ADDRESS="{{ .Data.data.TURBO_DEPLOYER_ADDRESS }}"
         {{- end }}
         EOH
         destination = "secrets/keys.env"
@@ -98,6 +107,9 @@ job "operator-checks-stage" {
         TOKEN_CONTRACT_ADDRESS="{{ key "ator-token/sepolia/stage/address" }}"
         {{- range service "validator-stage-mongo" }}
         MONGO_URI="mongodb://{{ .Address }}:{{ .Port }}/operator-checks-stage"
+        {{- end }}
+        {{- range service "hyperbeam-stage-node" }}
+        HYPERBEAM_NODE_URL="http://{{ .Address }}:{{ .Port }}"
         {{- end }}
         {{- range service "ario-any1-envoy" }}
         ARWEAVE_GATEWAY_PROTOCOL="http"
