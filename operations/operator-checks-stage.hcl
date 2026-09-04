@@ -64,6 +64,13 @@ job "operator-checks-stage" {
         # MAX close to the spender's balance can pass the check and still fail on chain. The
         # spenders held ~11-16 AR after the 2026-09-03 top-up, so MAX=6 leaves room for about two
         # refills before they need attention. At 0.328 AR/day a 3 AR top-up is ~9 days of runway of node runway.
+        # D25 publishing reliability. Lag is measured as the AGE of the newest published
+        # assignment, so 1800000 = 3 bundler flush cycles, not 3 slots.
+        PUBLISHING_LAG_ALERT_MS="1800000"
+        CHECKPOINT_MAX_AGE_MS="172800000"
+        # goldsky serves GraphQL but 404s on /<id>, so it is an INDEX only, never a data gateway.
+        PUBLIC_ARWEAVE_GATEWAYS="https://arweave.net"
+        PUBLIC_ARWEAVE_INDEXES="https://arweave.net,https://arweave-search.goldsky.com"
         HYPERBEAM_NODE_MIN_AR=3
         HYPERBEAM_NODE_MAX_AR=6
         IS_LOCAL_LEADER="true"
@@ -100,6 +107,9 @@ job "operator-checks-stage" {
         TOKEN_CONTRACT_ADDRESS="{{ key "ator-token/sepolia/stage/address" }}"
         {{- range service "validator-stage-mongo" }}
         MONGO_URI="mongodb://{{ .Address }}:{{ .Port }}/operator-checks-stage"
+        {{- end }}
+        {{- range service "hyperbeam-stage-node" }}
+        HYPERBEAM_NODE_URL="http://{{ .Address }}:{{ .Port }}"
         {{- end }}
         {{- range service "ario-any1-envoy" }}
         ARWEAVE_GATEWAY_PROTOCOL="http"

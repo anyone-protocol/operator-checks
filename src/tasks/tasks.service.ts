@@ -94,6 +94,9 @@ export class TasksService implements OnApplicationBootstrap {
 
       this.logger.log('Queueing immediate balance checks')
       await this.queueCheckBalances({ delayJob: 0 })
+
+      this.logger.log('Queueing immediate publishing checks')
+      await this.queueCheckPublishing({ delayJob: 0 })
     } else {
       this.logger.log(`Not the leader, skipping queue cleanup check & ` + `skipping queueing immediate balance checks`)
     }
@@ -125,6 +128,26 @@ export class TasksService implements OnApplicationBootstrap {
     this.logger.log(`Queueing check balances job with delay: ${opts.delayJob}ms`)
     await this.tasksQueue.add(
       'check-balances',
+      {},
+      {
+        delay: opts.delayJob,
+        removeOnComplete: TasksService.removeOnComplete,
+        removeOnFail: TasksService.removeOnFail,
+      },
+    )
+  }
+
+  /**
+   * Publishing checks ride the same tasks queue and cadence as the balance checks, but do NOT go
+   * through the balance-checks FLOW: there is nothing to fan out and nothing to aggregate, and the
+   * flow's queue name is about balances.
+   */
+  public async queueCheckPublishing(
+    opts: { delayJob?: number } = { delayJob: this.recheckDelay },
+  ): Promise<void> {
+    this.logger.log(`Queueing check publishing job with delay: ${opts.delayJob}ms`)
+    await this.tasksQueue.add(
+      'check-publishing',
       {},
       {
         delay: opts.delayJob,

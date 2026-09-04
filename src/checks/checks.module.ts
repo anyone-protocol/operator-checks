@@ -5,6 +5,7 @@ import { BalancesService } from './balances.service'
 import { BalancesData, BalancesDataSchema } from './schemas/balances-data'
 import { HodlerChecksService } from './hodler-checks.service'
 import { HyperbeamNodeChecksService } from './hyperbeam-node-checks.service'
+import { PublishingChecksService } from './publishing-checks.service'
 
 @Module({
   imports: [
@@ -19,11 +20,13 @@ import { HyperbeamNodeChecksService } from './hyperbeam-node-checks.service'
     BalancesService,
     HodlerChecksService,
     HyperbeamNodeChecksService,
+    PublishingChecksService,
   ],
   exports: [
     BalancesService,
     HodlerChecksService,
     HyperbeamNodeChecksService,
+    PublishingChecksService,
   ],
 })
 export class ChecksModule {}
