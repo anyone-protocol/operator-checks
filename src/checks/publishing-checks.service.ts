@@ -1,5 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import { InjectModel } from '@nestjs/mongoose'
+import { Model } from 'mongoose'
+import { PublishingLagState } from './schemas/publishing-lag-state'
 import { createHash } from 'crypto'
 import { gunzipSync } from 'zlib'
 
@@ -31,6 +34,8 @@ export class PublishingChecksService {
   static readonly DEFAULT_CHECKPOINT_MAX_AGE_MS = 48 * 60 * 60 * 1000
 
   constructor(
+    @InjectModel(PublishingLagState.name)
+    private readonly lagState: Model<PublishingLagState>,
     private readonly config: ConfigService<{
       HYPERBEAM_NODE_URL: string
       PUBLISHING_LAG_ALERT_MS: string
@@ -242,19 +247,51 @@ export class PublishingChecksService {
         return
       }
 
-      if (current <= newest.slot) return
+      // Caught up. Drop any recorded stall so the next one starts a fresh clock.
+      if (current <= newest.slot) {
+        await this.lagState.deleteMany({ process: pid })
+        return
+      }
 
-      const ageMs = Date.now() - newest.timestamp
-      if (ageMs > this.lagAlertMs) {
+      // Behind. Record WHEN we first saw this particular slot unpublished, and measure from that.
+      //
+      // ⚠️ Do NOT measure from `newest.timestamp`. That is the block time of the PREVIOUS
+      // assignment, which on an hourly cadence is already 25-60 min old when healthy, and 500+ min
+      // for event-driven operator-registry. Measuring from it fires the alarm the moment the node
+      // advances a slot and resolves when the new assignment indexes - it flapped every round.
+      // 🚨 Key on the PUBLISHED frontier, NOT on `current`.
+      // If publishing stalls while the node keeps settling rounds, `current` advances every hour.
+      // Keyed on `current`, every lookup would miss, the clock would reset to now each time, and
+      // the alarm would NEVER fire - silently, which is the exact failure class this exists to
+      // catch. `newest.slot` is the value that stays STUCK while publishing is broken, so the
+      // clock keyed on it runs continuously, and it rolls over on its own once publishing resumes.
+      const now = Date.now()
+      const stuckAt = newest.slot
+      const existing = await this.lagState.findOne({ process: pid, slot: stuckAt })
+      let firstSeenAt = existing?.firstSeenAt
+      if (!firstSeenAt) {
+        firstSeenAt = now
+        await this.lagState.updateOne(
+          { process: pid, slot: stuckAt },
+          { $setOnInsert: { process: pid, slot: stuckAt, firstSeenAt: now } },
+          { upsert: true },
+        )
+        // Older frontiers are moot once we are past them; drop them so this cannot grow unbounded.
+        await this.lagState.deleteMany({ process: pid, slot: { $lt: stuckAt } })
+      }
+
+      const stalledMs = now - firstSeenAt
+      if (stalledMs > this.lagAlertMs) {
         this.logger.warn(
-          `[alarm=publishing-lag] Process [${pid}] is at slot ${current} but the newest published ` +
-            `assignment is slot ${newest.slot}, last seen ${Math.round(ageMs / 60000)} min ago ` +
+          `[alarm=publishing-lag] Process [${pid}] has been at slot ${current} with nothing newer ` +
+            `than slot ${newest.slot} published for ${Math.round(stalledMs / 60000)} min ` +
             `(threshold ${Math.round(this.lagAlertMs / 60000)} min). Assignments may be being ` +
             `DISCARDED - those slots become unpublishable permanently.`,
         )
       } else {
         this.logger.debug(
-          `Process [${pid}] slot ${current}, published ${newest.slot}, ${Math.round(ageMs / 60000)} min - within threshold`,
+          `Process [${pid}] slot ${current}, published ${newest.slot}, unpublished for ` +
+            `${Math.round(stalledMs / 60000)} min - within threshold`,
         )
       }
     } catch (error) {
@@ -262,12 +299,6 @@ export class PublishingChecksService {
     }
   }
 
-  /**
-   * Checkpoint age + retrievability + independent discoverability.
-   *
-   * These are one check because they answer one question: could we actually recover this process
-   * from its newest published checkpoint right now?
-   */
   private async checkCheckpoint(index: string, pid: string): Promise<void> {
     try {
       const snap = await this.newestSnapshot(index, pid)

@@ -6,6 +6,7 @@ import { BalancesData, BalancesDataSchema } from './schemas/balances-data'
 import { HodlerChecksService } from './hodler-checks.service'
 import { HyperbeamNodeChecksService } from './hyperbeam-node-checks.service'
 import { PublishingChecksService } from './publishing-checks.service'
+import { PublishingLagState, PublishingLagStateSchema } from './schemas/publishing-lag-state'
 
 @Module({
   imports: [
@@ -13,6 +14,10 @@ import { PublishingChecksService } from './publishing-checks.service'
       {
         name: BalancesData.name,
         schema: BalancesDataSchema,
+      },
+      {
+        name: PublishingLagState.name,
+        schema: PublishingLagStateSchema,
       },
     ]),
   ],
