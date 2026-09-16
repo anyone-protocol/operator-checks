@@ -32,7 +32,7 @@ export class TasksQueue extends WorkerHost {
 
       case TasksQueue.JOB_CHECK_PUBLISHING:
         await this.publishingChecks.run()
-        this.tasks.queueCheckPublishing({ delayJob: this.tasks.recheckDelay })
+        this.tasks.queueCheckPublishing({ delayJob: this.tasks.recheckDelay, skipActiveCheck: true })
         break
 
       default:

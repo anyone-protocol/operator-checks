@@ -102,6 +102,25 @@ export class TasksService implements OnApplicationBootstrap {
     }
   }
 
+  public static readonly JOB_CHECK_BALANCES = 'check-balances'
+  public static readonly JOB_CHECK_PUBLISHING = 'check-publishing'
+
+  /**
+   * Count only the jobs with THIS name.
+   *
+   * 🚨 Counting the whole queue is what broke balance checks on 2026-09-04. Both tasks share
+   * `operator-checks-tasks-queue`, and each re-queues itself with a `recheckDelay`, so one task's
+   * delayed job made the other's guard see a non-empty queue and skip forever. Balance checks
+   * stopped silently, and the live node wallet sat below its refill threshold for 4 days.
+   * The guard exists to stop a task stacking up duplicates of ITSELF, so it must filter by name.
+   */
+  private async countQueued(name: string, skipActiveCheck = false): Promise<number> {
+    const states: Promise<{ name: string }[]>[] = [this.tasksQueue.getWaiting(), this.tasksQueue.getDelayed()]
+    if (!skipActiveCheck) states.push(this.tasksQueue.getActive())
+    const jobs = (await Promise.all(states)).flat()
+    return jobs.filter(j => j?.name === name).length
+  }
+
   public async queueCheckBalances(
     opts: {
       delayJob?: number
@@ -114,12 +133,7 @@ export class TasksService implements OnApplicationBootstrap {
     this.logger.log(
       `Checking jobs in tasks queue before queueing new check balances job ` + `with delay: ${opts.delayJob}ms`,
     )
-    let numJobsInQueue = 0
-    numJobsInQueue += await this.tasksQueue.getWaitingCount()
-    numJobsInQueue += await this.tasksQueue.getDelayedCount()
-    if (!opts.skipActiveCheck) {
-      numJobsInQueue += await this.tasksQueue.getActiveCount()
-    }
+    const numJobsInQueue = await this.countQueued(TasksService.JOB_CHECK_BALANCES, opts.skipActiveCheck)
     if (numJobsInQueue > 0) {
       this.logger.warn(`There are ${numJobsInQueue} jobs in the tasks queue, ` + `not queueing new check balances job`)
       return
@@ -127,7 +141,7 @@ export class TasksService implements OnApplicationBootstrap {
 
     this.logger.log(`Queueing check balances job with delay: ${opts.delayJob}ms`)
     await this.tasksQueue.add(
-      'check-balances',
+      TasksService.JOB_CHECK_BALANCES,
       {},
       {
         delay: opts.delayJob,
@@ -143,11 +157,16 @@ export class TasksService implements OnApplicationBootstrap {
    * flow's queue name is about balances.
    */
   public async queueCheckPublishing(
-    opts: { delayJob?: number } = { delayJob: this.recheckDelay },
+    opts: { delayJob?: number, skipActiveCheck?: boolean } = { delayJob: this.recheckDelay },
   ): Promise<void> {
+    const queued = await this.countQueued(TasksService.JOB_CHECK_PUBLISHING, opts.skipActiveCheck)
+    if (queued > 0) {
+      this.logger.warn(`There are ${queued} check publishing jobs already queued, not queueing another`)
+      return
+    }
     this.logger.log(`Queueing check publishing job with delay: ${opts.delayJob}ms`)
     await this.tasksQueue.add(
-      'check-publishing',
+      TasksService.JOB_CHECK_PUBLISHING,
       {},
       {
         delay: opts.delayJob,
