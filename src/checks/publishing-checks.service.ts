@@ -9,6 +9,18 @@ import { gunzipSync } from 'zlib'
 type Snapshot = { id: string; slot: number; sha: string; timestamp: number }
 
 /**
+ * What a gateway actually told us about a snapshot.
+ *
+ * 🚨 `unavailable` is NOT `absent`, and collapsing the two is what made this alarm flap. A 429, a
+ * 5xx or a timeout means the GATEWAY failed to answer - it is no evidence whatsoever about the
+ * data. arweave.net has rate-limited this cluster before (it blocked the live cutover), and the
+ * first cut of this check reported every one of those as "snapshot is NOT retrievable", i.e. as
+ * data loss. Only `absent` (the gateway says 404/410) and `corrupt` (bytes came back and the
+ * digest is wrong) are durability findings.
+ */
+type Retrieval = { state: 'ok' | 'absent' | 'corrupt' | 'unavailable'; detail: string }
+
+/**
  * D25 - publishing reliability monitoring.
  *
  * The failure this exists to catch is SILENT non-publishing: `dev_scheduler_server` discards the
@@ -25,6 +37,8 @@ export class PublishingChecksService {
   private readonly checkpointMaxAgeMs: number
   private readonly gateways: string[]
   private readonly indexes: string[]
+  private readonly snapshotGraceMs: number
+  private readonly newProcessGraceMs: number
 
   // A lag is NORMAL for minutes: our bundler batches on a ~5 min idle flush, then mines, then the
   // gateway indexes. Stage looked exactly like the failure mode for ~4 minutes before four
@@ -32,6 +46,16 @@ export class PublishingChecksService {
   static readonly DEFAULT_LAG_ALERT_MS = 30 * 60 * 1000
   // Snapshots publish @daily, so two missed runs is the signal.
   static readonly DEFAULT_CHECKPOINT_MAX_AGE_MS = 48 * 60 * 60 * 1000
+  // Propagation is NOT instant, and a snapshot published minutes ago legitimately is not everywhere
+  // yet: the bundler flushes on idle, the bundle mines, then each gateway unbundles and seeds the
+  // item and each index picks it up on its own schedule. Judging a snapshot the moment it appears
+  // is a guaranteed nightly flap right after the 00:00 publish run. Do not judge one younger
+  // than this.
+  static readonly DEFAULT_SNAPSHOT_GRACE_MS = 2 * 60 * 60 * 1000
+  // A process respawned an hour ago has no checkpoint because the @daily job has not run since,
+  // not because publishing is broken - live relay-rewards on 2026-09-16. Cover a full publish
+  // cycle plus slack before calling that a fault.
+  static readonly DEFAULT_NEW_PROCESS_GRACE_MS = 26 * 60 * 60 * 1000
 
   constructor(
     @InjectModel(PublishingLagState.name)
@@ -42,6 +66,8 @@ export class PublishingChecksService {
       CHECKPOINT_MAX_AGE_MS: string
       PUBLIC_ARWEAVE_GATEWAYS: string
       PUBLIC_ARWEAVE_INDEXES: string
+      SNAPSHOT_GRACE_MS: string
+      NEW_PROCESS_GRACE_MS: string
     }>,
   ) {
     this.nodeUrl = (this.config.get<string>('HYPERBEAM_NODE_URL', { infer: true }) || '').replace(/\/$/, '')
@@ -51,6 +77,12 @@ export class PublishingChecksService {
     this.checkpointMaxAgeMs =
       parseInt(this.config.get<string>('CHECKPOINT_MAX_AGE_MS', { infer: true }) ?? '', 10) ||
       PublishingChecksService.DEFAULT_CHECKPOINT_MAX_AGE_MS
+    this.snapshotGraceMs =
+      parseInt(this.config.get<string>('SNAPSHOT_GRACE_MS', { infer: true }) ?? '', 10) ||
+      PublishingChecksService.DEFAULT_SNAPSHOT_GRACE_MS
+    this.newProcessGraceMs =
+      parseInt(this.config.get<string>('NEW_PROCESS_GRACE_MS', { infer: true }) ?? '', 10) ||
+      PublishingChecksService.DEFAULT_NEW_PROCESS_GRACE_MS
     // Deliberately NOT the ARWEAVE_GATEWAY_* the refill path uses - that resolves to our OWN ario
     // node, so retrievability measured through it would be us checking ourselves. The SOW asks for
     // PUBLIC gateways.
@@ -154,14 +186,57 @@ export class PublishingChecksService {
     return best
   }
 
-  /** Is the snapshot findable by TAG on this index? That is the query recovery actually runs. */
-  private async discoverable(index: string, pid: string, id: string): Promise<boolean> {
-    const j = await this.gql(
-      index,
-      `{ transactions(tags:[{name:"schema",values:["state-snapshot@1"]},{name:"process",values:["${pid}"]}],
-         first:100){edges{node{id}}} }`,
-    )
-    return (j?.data?.transactions?.edges ?? []).some((e: any) => e.node.id === id)
+  /**
+   * Is the snapshot findable by TAG on this index? That is the query recovery actually runs.
+   *
+   * Returns `null` for COULD NOT TELL - the index did not answer. That is not the same as the
+   * snapshot being missing, and reporting it as if it were turns every index hiccup into a
+   * data-loss page. The caller must not raise the durability alarm on `null`.
+   */
+  private async discoverable(index: string, pid: string, id: string): Promise<boolean | null> {
+    try {
+      const j = await this.gql(
+        index,
+        `{ transactions(tags:[{name:"schema",values:["state-snapshot@1"]},{name:"process",values:["${pid}"]}],
+           first:100){edges{node{id}}} }`,
+      )
+      return (j?.data?.transactions?.edges ?? []).some((e: any) => e.node.id === id)
+    } catch (error) {
+      // Deliberately carries NO `alarm=` tag: an index outage is an index outage.
+      this.logger.warn(
+        `Could not query index ${index} for process [${pid}]: ${error?.message ?? error}. ` +
+          `Snapshot discoverability is UNDETERMINED this run, not failed.`,
+      )
+      return null
+    }
+  }
+
+  /**
+   * Rough age of a process, from the EARLIEST assignment of its own that an index knows about.
+   *
+   * Not the spawn transaction: a process id is a bundled data item id and is not reliably indexed
+   * as a transaction - measured 2026-09-16, live operator-registry's id resolves to nothing while
+   * both recently respawned processes' ids resolve fine. Assignments are published by the same
+   * path as everything else and the first one is a sound lower bound on age.
+   *
+   * `null` means the process has NOTHING indexed at all. There is no coverage gap in treating that
+   * as undatable here: `checkLag` already alarms loudly on exactly that condition.
+   */
+  private async earliestAssignmentMs(index: string, pid: string): Promise<number | null> {
+    try {
+      const j = await this.gql(
+        index,
+        `{ transactions(tags:[{name:"process",values:["${pid}"]},{name:"type",values:["Assignment"]}],
+           first:1, sort:HEIGHT_ASC){edges{node{block{timestamp}}}} }`,
+      )
+      const edges = j?.data?.transactions?.edges ?? []
+      if (!edges.length) return null
+      // Indexed but not yet mined means it was published moments ago - that IS brand new.
+      const ts = edges[0]?.node?.block?.timestamp
+      return ts ? ts * 1000 : Date.now()
+    } catch {
+      return null
+    }
   }
 
   /**
@@ -174,10 +249,17 @@ export class PublishingChecksService {
    * upload came back as 2,119,906 B of `application/json`), so an unconditional gunzip reports a
    * false corruption on a perfectly good snapshot.
    */
-  private async retrievable(gateway: string, snap: Snapshot): Promise<{ ok: boolean; detail: string }> {
+  private async retrievable(gateway: string, snap: Snapshot): Promise<Retrieval> {
     try {
       const res = await fetch(`${gateway}/${snap.id}`, { signal: AbortSignal.timeout(120_000) })
-      if (!res.ok) return { ok: false, detail: `http ${res.status}` }
+      if (!res.ok) {
+        // 404/410 is the gateway STATING the item is not there - a real durability finding.
+        // Everything else (429 rate limit, 5xx, a proxy error) is the gateway failing to answer
+        // and says nothing at all about whether the data is on Arweave.
+        return res.status === 404 || res.status === 410
+          ? { state: 'absent', detail: `http ${res.status}` }
+          : { state: 'unavailable', detail: `http ${res.status}` }
+      }
       const raw = new Uint8Array(await res.arrayBuffer())
       let body: Uint8Array = raw
       try {
@@ -186,12 +268,13 @@ export class PublishingChecksService {
         /* already decompressed by the gateway */
       }
       const sha = createHash('sha256').update(body).digest('hex')
-      if (!snap.sha) return { ok: true, detail: `${body.length} B, no state-sha256 tag to compare` }
+      if (!snap.sha) return { state: 'ok', detail: `${body.length} B, no state-sha256 tag to compare` }
       return sha === snap.sha
-        ? { ok: true, detail: `${body.length} B, digest matches` }
-        : { ok: false, detail: `DIGEST MISMATCH got ${sha} want ${snap.sha}` }
+        ? { state: 'ok', detail: `${body.length} B, digest matches` }
+        : { state: 'corrupt', detail: `DIGEST MISMATCH got ${sha} want ${snap.sha}` }
     } catch (error) {
-      return { ok: false, detail: `${error?.message ?? error}` }
+      // Timeout, DNS failure, connection reset. A transport failure is not evidence of data loss.
+      return { state: 'unavailable', detail: `${error?.message ?? error}` }
     }
   }
 
@@ -299,13 +382,40 @@ export class PublishingChecksService {
     }
   }
 
+  /**
+   * Checkpoint health: is there a recent snapshot, and is it actually usable for recovery?
+   *
+   * 🚨 The alarm must separate CANNOT REACH from IS NOT THERE. Every branch below that raises
+   * `[alarm=snapshot-unretrievable]` is one where a gateway or index gave us a real answer and
+   * the answer was bad. A gateway that times out, 429s or 5xxs is logged WITHOUT an `alarm=` tag,
+   * so an arweave.net outage cannot page as data loss.
+   */
   private async checkCheckpoint(index: string, pid: string): Promise<void> {
     try {
       const snap = await this.newestSnapshot(index, pid)
+
       if (!snap) {
+        // No checkpoint at all. Before calling that a fault, ask how long the process has existed:
+        // a respawn has no snapshot simply because the @daily job has not run since.
+        const bornMs = await this.earliestAssignmentMs(index, pid)
+        if (bornMs === null) {
+          this.logger.warn(
+            `Process [${pid}] has no published snapshot and nothing indexed to date it by. ` +
+              `The publishing-lag check covers a process with nothing on Arweave.`,
+          )
+          return
+        }
+        const bornAgo = Date.now() - bornMs
+        if (bornAgo < this.newProcessGraceMs) {
+          this.logger.log(
+            `Process [${pid}] has no published snapshot yet but is only ${Math.round(bornAgo / 3600000)} h ` +
+              `old (grace ${Math.round(this.newProcessGraceMs / 3600000)} h). The next daily publish covers it.`,
+          )
+          return
+        }
         this.logger.warn(
-          `[alarm=checkpoint-age] Process [${pid}] has NO published state snapshot on ${index}. ` +
-            `There is no checkpoint bounding replay for it.`,
+          `[alarm=checkpoint-age] Process [${pid}] has NO published state snapshot on ${index} and has ` +
+            `existed for ${Math.round(bornAgo / 3600000)} h. There is no checkpoint bounding replay for it.`,
         )
         return
       }
@@ -319,15 +429,32 @@ export class PublishingChecksService {
         )
       }
 
+      // A snapshot published minutes ago is EXPECTED not to be seeded and indexed everywhere yet.
+      // `snap.timestamp` is `Date.now()` while the item is still unmined, so a pending snapshot
+      // lands inside this window too, which is exactly right.
+      if (ageMs < this.snapshotGraceMs) {
+        this.logger.debug(
+          `Snapshot ${snap.id} for [${pid}] is ${Math.round(ageMs / 60000)} min old - inside the ` +
+            `${Math.round(this.snapshotGraceMs / 60000)} min propagation grace, not judged this run.`,
+        )
+        return
+      }
+
       // Data gateways: can the bytes be fetched, and are they the bytes we published?
       for (const gw of this.gateways) {
-        const { ok, detail } = await this.retrievable(gw, snap)
-        if (ok) {
+        const { state, detail } = await this.retrievable(gw, snap)
+        if (state === 'ok') {
           this.logger.debug(`Snapshot ${snap.id} retrievable from ${gw} (${detail})`)
+        } else if (state === 'unavailable') {
+          this.logger.warn(
+            `Gateway ${gw} did not answer for snapshot ${snap.id} (process [${pid}]): ${detail}. ` +
+              `Retrievability is UNDETERMINED this run, not failed.`,
+          )
         } else {
           this.logger.warn(
             `[alarm=snapshot-unretrievable] Snapshot ${snap.id} for process [${pid}] slot ${snap.slot} ` +
-              `is NOT retrievable from ${gw}: ${detail}. Recovery from this checkpoint would fail.`,
+              `is ${state === 'corrupt' ? 'CORRUPT' : 'ABSENT'} on ${gw}: ${detail}. Recovery from this ` +
+              `checkpoint would fail.`,
           )
         }
       }
@@ -335,19 +462,14 @@ export class PublishingChecksService {
       // Indexes: is it findable by TAG, which is the query recovery actually runs? An item only one
       // index knows about is a single point of failure for discovery.
       for (const idx of this.indexes) {
-        try {
-          if (await this.discoverable(idx, pid, snap.id)) {
-            this.logger.debug(`Snapshot ${snap.id} discoverable by tag on ${idx}`)
-          } else {
-            this.logger.warn(
-              `[alarm=snapshot-unretrievable] Snapshot ${snap.id} for process [${pid}] is NOT ` +
-                `discoverable by tag on ${idx}. Recovery searches by tag, so it could not find this.`,
-            )
-          }
-        } catch (error) {
+        const found = await this.discoverable(idx, pid, snap.id)
+        if (found === null) continue // index did not answer; already logged, and not a finding
+        if (found) {
+          this.logger.debug(`Snapshot ${snap.id} discoverable by tag on ${idx}`)
+        } else {
           this.logger.warn(
-            `[alarm=snapshot-unretrievable] Could not query index ${idx} for process [${pid}]: ` +
-              `${error?.message ?? error}`,
+            `[alarm=snapshot-unretrievable] Snapshot ${snap.id} for process [${pid}] is NOT ` +
+              `discoverable by tag on ${idx}. Recovery searches by tag, so it could not find this.`,
           )
         }
       }
