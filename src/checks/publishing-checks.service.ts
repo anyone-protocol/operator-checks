@@ -6,7 +6,7 @@ import { PublishingLagState } from './schemas/publishing-lag-state'
 import { createHash } from 'crypto'
 import { gunzipSync } from 'zlib'
 
-type Snapshot = { id: string; slot: number; sha: string; timestamp: number }
+type Snapshot = { id: string; slot: number; sha: string; timestamp: number; mined: boolean }
 
 /**
  * What a gateway actually told us about a snapshot.
@@ -167,23 +167,35 @@ export class PublishingChecksService {
     return best
   }
 
-  private async newestSnapshot(index: string, pid: string): Promise<Snapshot | null> {
+  private async newestSnapshots(
+    index: string,
+    pid: string,
+  ): Promise<{ any: Snapshot | null; mined: Snapshot | null }> {
     const j = await this.gql(
       index,
       `{ transactions(tags:[{name:"schema",values:["state-snapshot@1"]},{name:"process",values:["${pid}"]}],
          first:100, sort:HEIGHT_DESC){edges{node{id block{timestamp} tags{name value}}}} }`,
     )
     const edges = j?.data?.transactions?.edges ?? []
-    let best: Snapshot | null = null
+    let any: Snapshot | null = null
+    let mined: Snapshot | null = null
     for (const e of edges) {
       const tags: Record<string, string> = {}
       for (const t of e.node.tags) tags[t.name] = t.value
       const slot = parseInt(tags.slot ?? '', 10)
       if (!Number.isFinite(slot)) continue
-      const timestamp = e.node.block?.timestamp ? e.node.block.timestamp * 1000 : Date.now()
-      if (!best || slot > best.slot) best = { id: e.node.id, slot, sha: tags['state-sha256'], timestamp }
+      const ts = e.node.block?.timestamp
+      const snap: Snapshot = {
+        id: e.node.id,
+        slot,
+        sha: tags['state-sha256'],
+        timestamp: ts ? ts * 1000 : 0,
+        mined: !!ts,
+      }
+      if (!any || slot > any.slot) any = snap
+      if (snap.mined && (!mined || slot > mined.slot)) mined = snap
     }
-    return best
+    return { any, mined }
   }
 
   /**
@@ -392,7 +404,13 @@ export class PublishingChecksService {
    */
   private async checkCheckpoint(index: string, pid: string): Promise<void> {
     try {
-      const snap = await this.newestSnapshot(index, pid)
+      // 🚨 AGE AND RETRIEVABILITY ARE BOTH MEASURED ON THE NEWEST **MINED** SNAPSHOT.
+      // An unmined item is not yet a durable checkpoint, and dating one as "published now" is a
+      // silent-failure hole: a bundle that indexes but never mines would read as 0 h old on every
+      // poll forever, so the age threshold could never trip and the propagation grace below would
+      // skip the gateway checks every time. Pending items are in flight; they are reported, never
+      // used as evidence of a checkpoint.
+      const { any: inFlight, mined: snap } = await this.newestSnapshots(index, pid)
 
       if (!snap) {
         // No checkpoint at all. Before calling that a fault, ask how long the process has existed:
@@ -406,16 +424,19 @@ export class PublishingChecksService {
           return
         }
         const bornAgo = Date.now() - bornMs
+        const flight = inFlight ? ` A snapshot for slot ${inFlight.slot} is published but NOT YET MINED.` : ''
         if (bornAgo < this.newProcessGraceMs) {
           this.logger.log(
-            `Process [${pid}] has no published snapshot yet but is only ${Math.round(bornAgo / 3600000)} h ` +
-              `old (grace ${Math.round(this.newProcessGraceMs / 3600000)} h). The next daily publish covers it.`,
+            `Process [${pid}] has no mined snapshot yet but is only ${Math.round(bornAgo / 3600000)} h ` +
+              `old (grace ${Math.round(this.newProcessGraceMs / 3600000)} h). The next daily publish covers it.` +
+              flight,
           )
           return
         }
         this.logger.warn(
-          `[alarm=checkpoint-age] Process [${pid}] has NO published state snapshot on ${index} and has ` +
-            `existed for ${Math.round(bornAgo / 3600000)} h. There is no checkpoint bounding replay for it.`,
+          `[alarm=checkpoint-age] Process [${pid}] has NO mined state snapshot on ${index} and has ` +
+            `existed for ${Math.round(bornAgo / 3600000)} h. There is no checkpoint bounding replay for it.` +
+            flight,
         )
         return
       }
@@ -429,9 +450,8 @@ export class PublishingChecksService {
         )
       }
 
-      // A snapshot published minutes ago is EXPECTED not to be seeded and indexed everywhere yet.
-      // `snap.timestamp` is `Date.now()` while the item is still unmined, so a pending snapshot
-      // lands inside this window too, which is exactly right.
+      // A snapshot mined minutes ago is EXPECTED not to be seeded and indexed everywhere yet.
+      // Bounded by a real block timestamp, so unlike a pending item this window always closes.
       if (ageMs < this.snapshotGraceMs) {
         this.logger.debug(
           `Snapshot ${snap.id} for [${pid}] is ${Math.round(ageMs / 60000)} min old - inside the ` +
