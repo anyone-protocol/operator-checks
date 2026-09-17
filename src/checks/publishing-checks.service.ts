@@ -46,12 +46,14 @@ export class PublishingChecksService {
   static readonly DEFAULT_LAG_ALERT_MS = 30 * 60 * 1000
   // Snapshots publish @daily, so two missed runs is the signal.
   static readonly DEFAULT_CHECKPOINT_MAX_AGE_MS = 48 * 60 * 60 * 1000
-  // Propagation is NOT instant, and a snapshot published minutes ago legitimately is not everywhere
-  // yet: the bundler flushes on idle, the bundle mines, then each gateway unbundles and seeds the
-  // item and each index picks it up on its own schedule. Judging a snapshot the moment it appears
-  // is a guaranteed nightly flap right after the 00:00 publish run. Do not judge one younger
-  // than this.
-  static readonly DEFAULT_SNAPSHOT_GRACE_MS = 2 * 60 * 60 * 1000
+  // Propagation is NOT instant. After the bundle mines, each gateway still has to unbundle it and
+  // serve the item, and each index picks it up on its own schedule. MINING IS NOT AVAILABILITY:
+  // measured 2026-09-17, live staking slot 1845 was mined at 00:04:18 and arweave.net still 404'd
+  // the item at 03:58:53, then served it byte-exact by 04:06. The first cut used 2 h and fired on
+  // exactly that. 12 h is ~3x the one lag measured.
+  //
+  // A long grace is only safe because of HOW it is applied - see `settled` in `newestSnapshots`.
+  static readonly DEFAULT_SNAPSHOT_GRACE_MS = 12 * 60 * 60 * 1000
   // A process respawned an hour ago has no checkpoint because the @daily job has not run since,
   // not because publishing is broken - live relay-rewards on 2026-09-16. Cover a full publish
   // cycle plus slack before calling that a fault.
@@ -170,7 +172,7 @@ export class PublishingChecksService {
   private async newestSnapshots(
     index: string,
     pid: string,
-  ): Promise<{ any: Snapshot | null; mined: Snapshot | null }> {
+  ): Promise<{ any: Snapshot | null; mined: Snapshot | null; settled: Snapshot | null }> {
     const j = await this.gql(
       index,
       `{ transactions(tags:[{name:"schema",values:["state-snapshot@1"]},{name:"process",values:["${pid}"]}],
@@ -179,6 +181,14 @@ export class PublishingChecksService {
     const edges = j?.data?.transactions?.edges ?? []
     let any: Snapshot | null = null
     let mined: Snapshot | null = null
+    // 🚨 The newest snapshot OLDER than the propagation grace - the one retrievability is judged on.
+    // NOT simply the newest. Snapshots publish daily, so the newest one is always under 24 h old;
+    // skipping it while young would leave the check doing NOTHING for `grace` hours of every day,
+    // and a grace of 24 h would disable it entirely. Judging the newest one that has had time to
+    // propagate keeps every run checking something, and a longer grace only delays WHEN a given
+    // snapshot is verified, never WHETHER.
+    let settled: Snapshot | null = null
+    const now = Date.now()
     for (const e of edges) {
       const tags: Record<string, string> = {}
       for (const t of e.node.tags) tags[t.name] = t.value
@@ -194,8 +204,11 @@ export class PublishingChecksService {
       }
       if (!any || slot > any.slot) any = snap
       if (snap.mined && (!mined || slot > mined.slot)) mined = snap
+      if (snap.mined && now - snap.timestamp >= this.snapshotGraceMs && (!settled || slot > settled.slot)) {
+        settled = snap
+      }
     }
-    return { any, mined }
+    return { any, mined, settled }
   }
 
   /**
@@ -410,7 +423,7 @@ export class PublishingChecksService {
       // poll forever, so the age threshold could never trip and the propagation grace below would
       // skip the gateway checks every time. Pending items are in flight; they are reported, never
       // used as evidence of a checkpoint.
-      const { any: inFlight, mined: snap } = await this.newestSnapshots(index, pid)
+      const { any: inFlight, mined: snap, settled } = await this.newestSnapshots(index, pid)
 
       if (!snap) {
         // No checkpoint at all. Before calling that a fault, ask how long the process has existed:
@@ -450,29 +463,31 @@ export class PublishingChecksService {
         )
       }
 
-      // A snapshot mined minutes ago is EXPECTED not to be seeded and indexed everywhere yet.
-      // Bounded by a real block timestamp, so unlike a pending item this window always closes.
-      if (ageMs < this.snapshotGraceMs) {
+      // Retrievability is judged on the newest snapshot that has had time to PROPAGATE, not the
+      // newest one - see `settled` in `newestSnapshots`. None yet only happens for a process whose
+      // every snapshot is younger than the grace, i.e. a fresh respawn; the age check above still ran.
+      if (!settled) {
         this.logger.debug(
-          `Snapshot ${snap.id} for [${pid}] is ${Math.round(ageMs / 60000)} min old - inside the ` +
-            `${Math.round(this.snapshotGraceMs / 60000)} min propagation grace, not judged this run.`,
+          `Process [${pid}] has no snapshot older than the ${Math.round(this.snapshotGraceMs / 3600000)} h ` +
+            `propagation grace yet (newest slot ${snap.slot}, ${Math.round(ageMs / 60000)} min old). Nothing to judge this run.`,
         )
         return
       }
+      const target = settled
 
       // Data gateways: can the bytes be fetched, and are they the bytes we published?
       for (const gw of this.gateways) {
-        const { state, detail } = await this.retrievable(gw, snap)
+        const { state, detail } = await this.retrievable(gw, target)
         if (state === 'ok') {
-          this.logger.debug(`Snapshot ${snap.id} retrievable from ${gw} (${detail})`)
+          this.logger.debug(`Snapshot ${target.id} retrievable from ${gw} (${detail})`)
         } else if (state === 'unavailable') {
           this.logger.warn(
-            `Gateway ${gw} did not answer for snapshot ${snap.id} (process [${pid}]): ${detail}. ` +
+            `Gateway ${gw} did not answer for snapshot ${target.id} (process [${pid}]): ${detail}. ` +
               `Retrievability is UNDETERMINED this run, not failed.`,
           )
         } else {
           this.logger.warn(
-            `[alarm=snapshot-unretrievable] Snapshot ${snap.id} for process [${pid}] slot ${snap.slot} ` +
+            `[alarm=snapshot-unretrievable] Snapshot ${target.id} for process [${pid}] slot ${target.slot} ` +
               `is ${state === 'corrupt' ? 'CORRUPT' : 'ABSENT'} on ${gw}: ${detail}. Recovery from this ` +
               `checkpoint would fail.`,
           )
@@ -482,13 +497,13 @@ export class PublishingChecksService {
       // Indexes: is it findable by TAG, which is the query recovery actually runs? An item only one
       // index knows about is a single point of failure for discovery.
       for (const idx of this.indexes) {
-        const found = await this.discoverable(idx, pid, snap.id)
+        const found = await this.discoverable(idx, pid, target.id)
         if (found === null) continue // index did not answer; already logged, and not a finding
         if (found) {
-          this.logger.debug(`Snapshot ${snap.id} discoverable by tag on ${idx}`)
+          this.logger.debug(`Snapshot ${target.id} discoverable by tag on ${idx}`)
         } else {
           this.logger.warn(
-            `[alarm=snapshot-unretrievable] Snapshot ${snap.id} for process [${pid}] is NOT ` +
+            `[alarm=snapshot-unretrievable] Snapshot ${target.id} for process [${pid}] is NOT ` +
               `discoverable by tag on ${idx}. Recovery searches by tag, so it could not find this.`,
           )
         }
