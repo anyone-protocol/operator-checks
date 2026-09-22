@@ -39,6 +39,7 @@ export class PublishingChecksService {
   private readonly indexes: string[]
   private readonly snapshotGraceMs: number
   private readonly newProcessGraceMs: number
+  private readonly indexMaxAgeMs: number
 
   // A lag is NORMAL for minutes: our bundler batches on a ~5 min idle flush, then mines, then the
   // gateway indexes. Stage looked exactly like the failure mode for ~4 minutes before four
@@ -58,6 +59,12 @@ export class PublishingChecksService {
   // not because publishing is broken - live relay-rewards on 2026-09-16. Cover a full publish
   // cycle plus slack before calling that a fault.
   static readonly DEFAULT_NEW_PROCESS_GRACE_MS = 26 * 60 * 60 * 1000
+  // How stale a SECONDARY index's newest settled snapshot may get. Healthy, it runs 12-36 h. One
+  // skipped bundle (goldsky does this, see the index loop in `checkCheckpoint`) peaks at 60 h, just
+  // before the next one settles; a late publish run adds its delay on top (live's 09-16 run landed
+  // 8 h late). 72 h tolerates one skip, fires for ~12 h on two in a row, and fires continuously
+  // once an index stops indexing us.
+  static readonly DEFAULT_INDEX_MAX_AGE_MS = 72 * 60 * 60 * 1000
 
   constructor(
     @InjectModel(PublishingLagState.name)
@@ -70,6 +77,7 @@ export class PublishingChecksService {
       PUBLIC_ARWEAVE_INDEXES: string
       SNAPSHOT_GRACE_MS: string
       NEW_PROCESS_GRACE_MS: string
+      INDEX_MAX_AGE_MS: string
     }>,
   ) {
     this.nodeUrl = (this.config.get<string>('HYPERBEAM_NODE_URL', { infer: true }) || '').replace(/\/$/, '')
@@ -85,6 +93,9 @@ export class PublishingChecksService {
     this.newProcessGraceMs =
       parseInt(this.config.get<string>('NEW_PROCESS_GRACE_MS', { infer: true }) ?? '', 10) ||
       PublishingChecksService.DEFAULT_NEW_PROCESS_GRACE_MS
+    this.indexMaxAgeMs =
+      parseInt(this.config.get<string>('INDEX_MAX_AGE_MS', { infer: true }) ?? '', 10) ||
+      PublishingChecksService.DEFAULT_INDEX_MAX_AGE_MS
     // Deliberately NOT the ARWEAVE_GATEWAY_* the refill path uses - that resolves to our OWN ario
     // node, so retrievability measured through it would be us checking ourselves. The SOW asks for
     // PUBLIC gateways.
@@ -172,15 +183,25 @@ export class PublishingChecksService {
   private async newestSnapshots(
     index: string,
     pid: string,
-  ): Promise<{ any: Snapshot | null; mined: Snapshot | null; settled: Snapshot | null }> {
+  ): Promise<{
+    any: Snapshot | null
+    mined: Snapshot | null
+    settled: Snapshot | null
+    oldest: Snapshot | null
+    ids: Set<string>
+  }> {
     const j = await this.gql(
       index,
       `{ transactions(tags:[{name:"schema",values:["state-snapshot@1"]},{name:"process",values:["${pid}"]}],
          first:100, sort:HEIGHT_DESC){edges{node{id block{timestamp} tags{name value}}}} }`,
     )
     const edges = j?.data?.transactions?.edges ?? []
+    const ids = new Set<string>()
     let any: Snapshot | null = null
     let mined: Snapshot | null = null
+    // Oldest MINED snapshot on this page. A lower bound on how long this index has been able to
+    // hold one, for dating an index that holds none - see the index loop in `checkCheckpoint`.
+    let oldest: Snapshot | null = null
     // 🚨 The newest snapshot OLDER than the propagation grace - the one retrievability is judged on.
     // NOT simply the newest. Snapshots publish daily, so the newest one is always under 24 h old;
     // skipping it while young would leave the check doing NOTHING for `grace` hours of every day,
@@ -202,38 +223,15 @@ export class PublishingChecksService {
         timestamp: ts ? ts * 1000 : 0,
         mined: !!ts,
       }
+      ids.add(snap.id)
       if (!any || slot > any.slot) any = snap
       if (snap.mined && (!mined || slot > mined.slot)) mined = snap
+      if (snap.mined && (!oldest || slot < oldest.slot)) oldest = snap
       if (snap.mined && now - snap.timestamp >= this.snapshotGraceMs && (!settled || slot > settled.slot)) {
         settled = snap
       }
     }
-    return { any, mined, settled }
-  }
-
-  /**
-   * Is the snapshot findable by TAG on this index? That is the query recovery actually runs.
-   *
-   * Returns `null` for COULD NOT TELL - the index did not answer. That is not the same as the
-   * snapshot being missing, and reporting it as if it were turns every index hiccup into a
-   * data-loss page. The caller must not raise the durability alarm on `null`.
-   */
-  private async discoverable(index: string, pid: string, id: string): Promise<boolean | null> {
-    try {
-      const j = await this.gql(
-        index,
-        `{ transactions(tags:[{name:"schema",values:["state-snapshot@1"]},{name:"process",values:["${pid}"]}],
-           first:100){edges{node{id}}} }`,
-      )
-      return (j?.data?.transactions?.edges ?? []).some((e: any) => e.node.id === id)
-    } catch (error) {
-      // Deliberately carries NO `alarm=` tag: an index outage is an index outage.
-      this.logger.warn(
-        `Could not query index ${index} for process [${pid}]: ${error?.message ?? error}. ` +
-          `Snapshot discoverability is UNDETERMINED this run, not failed.`,
-      )
-      return null
-    }
+    return { any, mined, settled, oldest, ids }
   }
 
   /**
@@ -423,7 +421,7 @@ export class PublishingChecksService {
       // poll forever, so the age threshold could never trip and the propagation grace below would
       // skip the gateway checks every time. Pending items are in flight; they are reported, never
       // used as evidence of a checkpoint.
-      const { any: inFlight, mined: snap, settled } = await this.newestSnapshots(index, pid)
+      const { any: inFlight, mined: snap, settled, oldest } = await this.newestSnapshots(index, pid)
 
       if (!snap) {
         // No checkpoint at all. Before calling that a fault, ask how long the process has existed:
@@ -494,18 +492,57 @@ export class PublishingChecksService {
         }
       }
 
-      // Indexes: is it findable by TAG, which is the query recovery actually runs? An item only one
-      // index knows about is a single point of failure for discovery.
-      for (const idx of this.indexes) {
-        const found = await this.discoverable(idx, pid, target.id)
-        if (found === null) continue // index did not answer; already logged, and not a finding
-        if (found) {
-          this.logger.debug(`Snapshot ${target.id} discoverable by tag on ${idx}`)
-        } else {
+      // Secondary indexes: could recovery FIND a recent checkpoint through each of them? Recovery
+      // searches by tag and takes the newest snapshot the index returns, so what a second index
+      // provides is a recent checkpoint, not any one item. An index that loses that is the single
+      // point of failure for discovery this loop exists to catch.
+      //
+      // 🚨 An index missing ONE snapshot is not that. goldsky indexes our L1 bundle transaction and
+      // then, intermittently, never unbundles it, so it PERMANENTLY lacks every item in it -
+      // measured 2026-09-22 on the stage bundles of 09-06, 09-08 and 09-21 (0 of 3 items each; live
+      // 0 misses in 19 days, cause unknown). Alarming on the settled item fired for the whole 24 h
+      // until the next one settled, every time, for something we cannot act on and that costs
+      // recovery nothing: the day before and the day after are both there.
+      //
+      // The primary index is skipped: `target` came from its own tag query, so asking it again
+      // proves nothing, and its staleness is `checkpoint-age`'s job.
+      for (const idx of this.indexes.filter(i => i !== index)) {
+        let here: Awaited<ReturnType<PublishingChecksService['newestSnapshots']>>
+        try {
+          here = await this.newestSnapshots(idx, pid)
+        } catch (error) {
+          // Deliberately carries NO `alarm=` tag: an index outage is an index outage.
           this.logger.warn(
-            `[alarm=snapshot-unretrievable] Snapshot ${target.id} for process [${pid}] is NOT ` +
-              `discoverable by tag on ${idx}. Recovery searches by tag, so it could not find this.`,
+            `Could not query index ${idx} for process [${pid}]: ${error?.message ?? error}. ` +
+              `Snapshot discoverability is UNDETERMINED this run, not failed.`,
           )
+          continue
+        }
+        // Judged on the index's newest snapshot past the grace, like `target`, so this cannot race
+        // the index picking up today's publish. An index holding NO settled snapshot is dated from
+        // the primary's oldest, i.e. from when it could first have had one - measuring it from
+        // `target` instead would keep an index that indexes nothing of ours looking fresh forever.
+        const ref = here.settled ?? oldest ?? target
+        const staleMs = Date.now() - ref.timestamp
+        const stale = `${Math.round(staleMs / 3600000)} h`
+        if (staleMs > this.indexMaxAgeMs) {
+          this.logger.warn(
+            `[alarm=snapshot-unretrievable] Recovery through ${idx} for process [${pid}] would find ` +
+              (here.settled ? `slot ${here.settled.slot}, ${stale} old` : `NO settled snapshot in ${stale}`) +
+              ` (threshold ${Math.round(this.indexMaxAgeMs / 3600000)} h; primary has slot ${target.slot}). ` +
+              `The index may have stopped indexing our bundles.`,
+          )
+        } else if (!here.ids.has(target.id)) {
+          this.logger.warn(
+            `Snapshot ${target.id} for process [${pid}] slot ${target.slot} is not indexed on ${idx}, ` +
+              `which likely skipped its bundle. ` +
+              (here.settled
+                ? `Recovery through it would still find slot ${here.settled.slot}, ${stale} old`
+                : `It holds no settled snapshot for this process, ${stale} after the first could have been`) +
+              ` (threshold ${Math.round(this.indexMaxAgeMs / 3600000)} h), so this is not a durability finding.`,
+          )
+        } else {
+          this.logger.debug(`Snapshot ${target.id} discoverable by tag on ${idx}`)
         }
       }
     } catch (error) {
