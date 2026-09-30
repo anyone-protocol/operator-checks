@@ -4,7 +4,6 @@ import Arweave from 'arweave'
 import { JWKInterface } from 'arweave/node/lib/wallet'
 import BigNumber from 'bignumber.js'
 import { ethers } from 'ethers'
-import { TurboFactory, ArweaveSigner, WinstonToTokenAmount } from '@ardrive/turbo-sdk'
 
 interface GraphQLTransaction {
   id: string
@@ -23,6 +22,7 @@ interface GraphQLResponse {
   }
 }
 
+
 @Injectable()
 export class RefillsService {
   private readonly logger = new Logger(RefillsService.name)
@@ -38,9 +38,8 @@ export class RefillsService {
   private arweave: Arweave
   private arSpender: JWKInterface
   private arSpenderAddress: string
-  private pendingTurboRefillTtlMs: number
   private arweaveGatewayUrl: string
-  private turboClient: ReturnType<typeof TurboFactory.unauthenticated>
+  private arRefillLookbackMs: number
 
   constructor(
     private readonly config: ConfigService<{
@@ -49,10 +48,10 @@ export class RefillsService {
       JSON_RPC: string
       ETH_SPENDER_KEY: string
       AR_SPENDER_KEY: string
+      AR_REFILL_LOOKBACK_MS: number
       ARWEAVE_GATEWAY_PROTOCOL: string
       ARWEAVE_GATEWAY_HOST: string
       ARWEAVE_GATEWAY_PORT: number
-      PENDING_TURBO_REFILL_TTL_MS: number
     }>,
   ) {
     this.isLive = this.config.get<string>('IS_LIVE', { infer: true })
@@ -88,8 +87,8 @@ export class RefillsService {
     }
     this.arweave = Arweave.init(arweaveConfig)
     this.arweaveGatewayUrl = `${arweaveProtocol}://${arweaveHost}${arweavePort !== 443 ? `:${arweavePort}` : ''}`
-    this.pendingTurboRefillTtlMs = this.config.get<number>('PENDING_TURBO_REFILL_TTL_MS', { infer: true }) || 7200000 // 2 hours default
-    this.turboClient = TurboFactory.unauthenticated()
+    this.arRefillLookbackMs =
+      this.config.get<number>('AR_REFILL_LOOKBACK_MS', { infer: true }) || 7200000 // 2 hours default
     try {
       this.arweave.wallets.jwkToAddress(this.arSpender).then((address) => {
         this.arSpenderAddress = address
@@ -161,9 +160,126 @@ export class RefillsService {
     }
   }
 
+  /**
+   * Balance checks run every RECHECK_DELAY_MS (15 min in stage and live) while an Arweave
+   * transfer takes tens of minutes to mine, and the recipient's balance does not move until
+   * it does. Without a guard the checker therefore sees the same low balance two or three
+   * times and sends the same refill two or three times over.
+   *
+   * ⚠️ This cooldown is in-process, so a restart inside the window loses it and one extra
+   * transfer can go out. That is deliberate rather than overlooked: the residual cost is
+   * over-funding a wallet WE OWN, which the node then spends, not a loss. Making it survive
+   * restarts means persisting the tx id and polling its status, which is not worth the
+   * machinery for that outcome.
+   *
+   * A gateway mempool lookup was tried first and removed: arweave.net GraphQL does NOT return
+   * unconfirmed transactions (verified 2026-09-03 against a live /tx/pending id), so it would
+   * have been dead code that read like protection.
+   */
+  private static readonly AR_SEND_COOLDOWN_MS = 60 * 60 * 1000
+  private recentArSends = new Map<string, number>()
+
+  private isArTransferInFlight(address: string): boolean {
+    const sentAt = this.recentArSends.get(address)
+    if (!sentAt) return false
+
+    const elapsed = Date.now() - sentAt
+    if (elapsed >= RefillsService.AR_SEND_COOLDOWN_MS) return false
+
+    this.logger.warn(
+      `Skipping $AR refill for [${address}]: one was sent ${Math.round(elapsed / 60000)} min ago and ` +
+        `has not confirmed. Sending again would duplicate it.`,
+    )
+    return true
+  }
+
+  /**
+   * Has the spender already sent $AR to this address recently?
+   *
+   * This is the half of the de-duplication that SURVIVES A RESTART, which the in-process
+   * cooldown above cannot. Recovered from the Turbo refill path removed in b03427b, which
+   * used the same lookback.
+   *
+   * ⚠️ arweave.net GraphQL does NOT index the mempool (verified 2026-09-03 by querying a live
+   * /tx/pending id and getting nothing back), so in practice this sees MINED transfers only.
+   * The unconfirmed window is what the in-process cooldown covers. A restart during that
+   * window is the one remaining gap, and it over-funds a wallet we own rather than losing
+   * anything.
+   *
+   * Returns true on ANY error: a failed lookup must never license a second spend.
+   */
+  private async hasRecentArTransfer(address: string): Promise<boolean> {
+    const query = `
+      query {
+        transactions(
+          owners: ["${this.arSpenderAddress}"]
+          recipients: ["${address}"]
+          first: 10
+        ) {
+          edges {
+            node {
+              id
+              block {
+                timestamp
+              }
+            }
+          }
+        }
+      }
+    `
+
+    try {
+      const response = await fetch(`${this.arweaveGatewayUrl}/graphql`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+        signal: AbortSignal.timeout(30_000),
+      })
+      if (!response.ok) {
+        throw new Error(`GraphQL request failed: ${response.status} ${response.statusText}`)
+      }
+
+      const result: GraphQLResponse = await response.json()
+      const edges = result.data?.transactions?.edges || []
+      const cutoff = Date.now() - this.arRefillLookbackMs
+
+      const recent = edges
+        .map((edge) => edge.node)
+        // no block yet means unconfirmed, which counts as in flight
+        .filter((tx) => !tx.block?.timestamp || tx.block.timestamp * 1000 > cutoff)
+
+      if (recent.length > 0) {
+        this.logger.warn(
+          `Skipping $AR refill for [${address}]: [${recent[0].id}] was already sent within the ` +
+            `last ${Math.round(this.arRefillLookbackMs / 60000)} min.`,
+        )
+        return true
+      }
+
+      return false
+    } catch (error) {
+      this.logger.error(
+        `Could not check for a recent $AR transfer to [${address}]; skipping the refill rather ` +
+          `than risking a duplicate`,
+        error.stack,
+      )
+      return true
+    }
+  }
+
   async sendArTo(address: string, amount: string): Promise<boolean> {
     try {
       if (this.isLive == 'true') {
+        // Two guards: the cooldown covers the unconfirmed window a gateway cannot show us,
+        // the lookback survives a restart. Neither is sufficient alone.
+        if (this.isArTransferInFlight(address)) {
+          return false
+        }
+
+        if (await this.hasRecentArTransfer(address)) {
+          return false
+        }
+
         const arSpenderBalanceWinston = await this.arweave.wallets.getBalance(this.arSpenderAddress)
         const arSpenderBalance = this.arweave.ar.winstonToAr(arSpenderBalanceWinston)
         if (BigNumber(arSpenderBalance).lt(BigNumber(amount))) {
@@ -184,6 +300,7 @@ export class RefillsService {
         const response = await this.arweave.transactions.post(tx)
 
         if (response.status === 200) {
+          this.recentArSends.set(address, Date.now())
           this.logger.log(
             `ArSpender [${this.arSpenderAddress}] finished sending [${amount}] $AR to [${address}] with tx [${tx.id}]`,
           )
@@ -215,188 +332,6 @@ export class RefillsService {
     } catch (error) {
       this.logger.error(`[alarm=refill-failed-ao] Failed to send [${amount}] $AO to [${address}]`, error.stack)
       return false
-    }
-  }
-
-  async topUpTurboCredits(address: string, credits: BigNumber): Promise<boolean> {
-    try {
-      if (this.isLive == 'true') {
-        // Check AR spender balance first
-        const arSpenderBalanceWinston = await this.arweave.wallets.getBalance(this.arSpenderAddress)
-        const arSpenderBalance = this.arweave.ar.winstonToAr(arSpenderBalanceWinston)
-
-        this.logger.log(
-          `Attempting to top up Turbo credits for [${address}] with ${credits.toFixed(
-            6,
-          )} Credits. ArSpender balance: ${arSpenderBalance} $AR`,
-        )
-
-        // Create authenticated Turbo client with AR spender
-        const signer = new ArweaveSigner(this.arSpender)
-        const turbo = TurboFactory.authenticated({ signer })
-
-        // Convert credits to winc (Winston Credits: 1 Credit = 1e12 winc)
-        const wincAmount = credits.multipliedBy(1e12).integerValue(BigNumber.ROUND_CEIL)
-
-        // Get the required AR amount for the winc
-        const { actualTokenAmount } = await turbo.getWincForToken({
-          tokenAmount: WinstonToTokenAmount(wincAmount.toString()),
-        })
-
-        const arRequired = this.arweave.ar.winstonToAr(actualTokenAmount.toString())
-
-        if (BigNumber(arSpenderBalance).lt(BigNumber(arRequired))) {
-          this.logger.warn(
-            `[alarm=refill-failed-turbo-credits] ArSpender [${
-              this.arSpenderAddress
-            }] does not have enough balance [${arSpenderBalance}] $AR to top up [${credits.toFixed(
-              6,
-            )}] Credits (requires ~${arRequired} $AR) for [${address}]`,
-          )
-          return false
-        }
-
-        // Top up with AR tokens, specifying the destination address
-        const { winc, status, id } = await turbo.topUpWithTokens({
-          tokenAmount: WinstonToTokenAmount(actualTokenAmount.toString()),
-          turboCreditDestinationAddress: address,
-        })
-
-        if (status === 'confirmed' || status === 'pending') {
-          const creditsAdded = BigNumber(winc).dividedBy(1e12)
-          this.logger.log(
-            `ArSpender [${this.arSpenderAddress}] successfully topped up [${creditsAdded.toFixed(
-              6,
-            )}] Credits to [${address}] with tx [${id}] (status: ${status})`,
-          )
-          return true
-        } else {
-          this.logger.warn(
-            `[alarm=refill-failed-turbo-credits] Failed to top up Turbo credits for [${address}]: status ${status}, tx [${id}]`,
-          )
-          return false
-        }
-      } else {
-        this.logger.warn(
-          `NOT LIVE, ArSpender [${this.arSpenderAddress}] did NOT top up [${credits.toFixed(
-            6,
-          )}] Credits to [${address}]`,
-        )
-      }
-
-      return true
-    } catch (error) {
-      this.logger.error(
-        `[alarm=refill-failed-turbo-credits] Failed to top up [${credits.toFixed(6)}] Credits for [${address}]`,
-        error.stack,
-      )
-      return false
-    }
-  }
-
-  /**
-   * Query Arweave GraphQL for recent turbo credit refill transactions
-   * from this service's AR spender wallet to a specific destination address.
-   */
-  private async queryRecentRefillTransactions(destinationAddress: string): Promise<GraphQLTransaction[]> {
-    const query = `
-      query {
-        transactions(
-          owners: ["${this.arSpenderAddress}"]
-          tags: [{ name: "Turbo-Credit-Destination-Address", values: ["${destinationAddress}"] }]
-          first: 10
-        ) {
-          edges {
-            node {
-              id
-              block {
-                timestamp
-              }
-            }
-          }
-        }
-      }
-    `
-
-    const response = await fetch(`${this.arweaveGatewayUrl}/graphql`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query }),
-    })
-
-    if (!response.ok) {
-      throw new Error(`GraphQL request failed: ${response.status} ${response.statusText}`)
-    }
-
-    const result: GraphQLResponse = await response.json()
-    const edges = result.data?.transactions?.edges || []
-
-    // Filter transactions within TTL window
-    const now = Date.now()
-    const ttlCutoff = now - this.pendingTurboRefillTtlMs
-
-    return edges
-      .map((edge) => edge.node)
-      .filter((tx) => {
-        // If no block yet (unconfirmed), include it
-        if (!tx.block?.timestamp) {
-          return true
-        }
-        // Block timestamp is in seconds, convert to ms
-        const txTimestampMs = tx.block.timestamp * 1000
-        return txTimestampMs > ttlCutoff
-      })
-  }
-
-  /**
-   * Check if there are any pending (unconfirmed) turbo credit refill transactions
-   * for a given destination address within the TTL window.
-   * Returns true if there are pending transactions (should skip new refill).
-   * Returns true on any error (fail safe - don't create duplicate refills).
-   */
-  async hasPendingTurboRefill(destinationAddress: string): Promise<boolean> {
-    try {
-      const recentTxs = await this.queryRecentRefillTransactions(destinationAddress)
-
-      if (recentTxs.length === 0) {
-        this.logger.debug(`No recent turbo refill transactions found for [${destinationAddress}]`)
-        return false
-      }
-
-      this.logger.debug(
-        `Found ${recentTxs.length} recent turbo refill transaction(s) for [${destinationAddress}]: ${recentTxs
-          .map((tx) => tx.id)
-          .join(', ')}`,
-      )
-
-      // Check status of each transaction via Turbo SDK
-      for (const tx of recentTxs) {
-        try {
-          const { status } = await this.turboClient.submitFundTransaction({ txId: tx.id })
-
-          if (status === 'pending') {
-            this.logger.log(`Pending turbo refill transaction [${tx.id}] found for [${destinationAddress}]`)
-            return true
-          }
-
-          this.logger.debug(`Transaction [${tx.id}] status: ${status}`)
-        } catch (txError) {
-          // If we can't check a transaction's status, assume it's pending to be safe
-          this.logger.warn(
-            `Failed to check status of transaction [${tx.id}] for [${destinationAddress}], treating as pending: ${txError.message}`,
-          )
-          return true
-        }
-      }
-
-      this.logger.debug(`All recent transactions for [${destinationAddress}] are settled`)
-      return false
-    } catch (error) {
-      // On any error, return true (pending) to avoid creating duplicate refills
-      this.logger.error(
-        `Failed to check pending turbo refills for [${destinationAddress}], treating as pending: ${error.message}`,
-      )
-      return true
     }
   }
 }

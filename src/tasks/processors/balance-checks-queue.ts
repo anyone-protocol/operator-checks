@@ -2,38 +2,25 @@ import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq'
 import { Logger } from '@nestjs/common'
 import { Job } from 'bullmq'
 import { BalancesService } from 'src/checks/balances.service'
-import { DistributionChecksService } from 'src/checks/distribution-checks.service'
-import { RelayRegistryChecksService } from 'src/checks/relay-registry-checks.service'
 import { BalancesData } from 'src/checks/schemas/balances-data'
 import { TasksService } from '../tasks.service'
-import { BundlerChecksService } from 'src/checks/bundler-checks.service'
 import { HodlerChecksService } from 'src/checks/hodler-checks.service'
-import { TurboCreditsChecksService } from 'src/checks/turbo-credits-checks.service'
+import { HyperbeamNodeChecksService } from 'src/checks/hyperbeam-node-checks.service'
 import { RefillsService } from 'src/refills/refills.service'
 
 @Processor('operator-checks-balance-checks-queue')
 export class BalanceChecksQueue extends WorkerHost {
   private readonly logger = new Logger(BalanceChecksQueue.name)
 
-  public static readonly JOB_CHECK_RELAY_REGISTRY = 'check-relay-registry'
-  public static readonly JOB_CHECK_BUNDLER = 'check-bundler'
-  public static readonly JOB_CHECK_RELAY_REWARDS = 'check-relay-rewards'
-  public static readonly JOB_CHECK_STAKING_REWARDS = 'check-staking-rewards'
   public static readonly JOB_CHECK_HODLER = 'check-hodler'
+  public static readonly JOB_CHECK_HYPERBEAM_NODE = 'check-hyperbeam-node'
   public static readonly JOB_CHECK_REWARDS_POOL = 'check-rewards-pool'
-  public static readonly JOB_CHECK_TURBO_DEPLOYER = 'check-turbo-deployer'
-  public static readonly JOB_CHECK_TURBO_OPERATOR_REGISTRY = 'check-turbo-operator-registry'
-  public static readonly JOB_CHECK_TURBO_RELAY_REWARDS = 'check-turbo-relay-rewards'
-  public static readonly JOB_CHECK_TURBO_STAKING_REWARDS = 'check-turbo-staking-rewards'
   public static readonly JOB_REVIEW_BALANCE_CHECKS = 'review-balance-checks'
 
   constructor(
     private readonly balances: BalancesService,
-    private readonly distributionChecks: DistributionChecksService,
-    private readonly relayRegistryChecks: RelayRegistryChecksService,
-    private readonly bundlerChecks: BundlerChecksService,
     private readonly hodlerChecks: HodlerChecksService,
-    private readonly turboCreditsChecks: TurboCreditsChecksService,
+    private readonly hyperbeamNodeChecks: HyperbeamNodeChecksService,
     private readonly tasks: TasksService,
     private readonly refills: RefillsService,
   ) {
@@ -44,63 +31,9 @@ export class BalanceChecksQueue extends WorkerHost {
     this.logger.debug(`Dequeueing ${job.name} [${job.id}]`)
 
     switch (job.name) {
-      case BalanceChecksQueue.JOB_CHECK_RELAY_REGISTRY:
+      case BalanceChecksQueue.JOB_CHECK_HYPERBEAM_NODE:
         try {
-          const { balance, requestAmount, address } = await this.relayRegistryChecks.getOperatorBalance()
-
-          return [
-            {
-              stamp: job.data,
-              kind: 'relay-registry-operator-ao-balance',
-              amount: balance.toString(),
-              address,
-              requestAmount: requestAmount?.toString() || undefined,
-            },
-          ]
-        } catch (error) {
-          this.logger.error('Failed checking relay registry', error.stack)
-          return []
-        }
-
-      case BalanceChecksQueue.JOB_CHECK_RELAY_REWARDS:
-        try {
-          const { balance, requestAmount, address } = await this.distributionChecks.getRelayRewardsOperatorBalance()
-
-          return [
-            {
-              stamp: job.data,
-              kind: 'relay-rewards-operator-ao-balance',
-              amount: balance.toString(),
-              address,
-              requestAmount: requestAmount?.toString() || undefined,
-            },
-          ]
-        } catch (error) {
-          this.logger.error('Failed checking relay rewards operator', error.stack)
-          return []
-        }
-
-      case BalanceChecksQueue.JOB_CHECK_STAKING_REWARDS:
-        try {
-          const { balance, requestAmount, address } = await this.distributionChecks.getStakingRewardsOperatorBalance()
-
-          return [
-            {
-              stamp: job.data,
-              kind: 'staking-rewards-operator-ao-balance',
-              amount: balance.toString(),
-              address,
-              requestAmount: requestAmount?.toString() || undefined,
-            },
-          ]
-        } catch (error) {
-          this.logger.error('Failed checking staking rewards operator', error.stack)
-          return []
-        }
-
-      case BalanceChecksQueue.JOB_CHECK_BUNDLER:
-        try {
-          const { balance, requestAmount, address } = await this.bundlerChecks.getOperatorBalance()
+          const { balance, requestAmount, address } = await this.hyperbeamNodeChecks.getNodeBalance()
 
           if (requestAmount && address) {
             await this.tasks.requestRefillAr(address, requestAmount)
@@ -109,14 +42,14 @@ export class BalanceChecksQueue extends WorkerHost {
           return [
             {
               stamp: job.data,
-              kind: 'bundler-operator-ar-balance',
+              kind: 'hyperbeam-node-ar-balance',
               amount: balance.toString(),
               requestAmount: requestAmount?.toString() || undefined,
               address,
             },
           ]
         } catch (error) {
-          this.logger.error('Failed checking bundler', error.stack)
+          this.logger.error('Failed checking hyperbeam node', error.stack)
           return []
         }
 
@@ -157,114 +90,6 @@ export class BalanceChecksQueue extends WorkerHost {
           ]
         } catch (error) {
           this.logger.error('Failed checking rewards pool', error.stack)
-          return []
-        }
-
-      case BalanceChecksQueue.JOB_CHECK_TURBO_DEPLOYER:
-        try {
-          const { balance, requestAmount, address } = await this.turboCreditsChecks.checkDeployerCredits()
-
-          if (requestAmount && address) {
-            const hasPending = await this.refills.hasPendingTurboRefill(address)
-            if (hasPending) {
-              this.logger.log(`Skipping turbo-deployer refill for [${address}] - pending transaction exists`)
-            } else {
-              await this.tasks.requestRefillTurboCredits(address, requestAmount)
-            }
-          }
-
-          return [
-            {
-              stamp: job.data,
-              kind: 'turbo-deployer-credits',
-              amount: balance.toString(),
-              requestAmount: requestAmount?.toString() || undefined,
-              address,
-            },
-          ]
-        } catch (error) {
-          this.logger.error('Failed checking Turbo deployer credits', error.stack)
-          return []
-        }
-
-      case BalanceChecksQueue.JOB_CHECK_TURBO_OPERATOR_REGISTRY:
-        try {
-          const { balance, requestAmount, address } = await this.turboCreditsChecks.checkOperatorRegistryCredits()
-
-          if (requestAmount && address) {
-            const hasPending = await this.refills.hasPendingTurboRefill(address)
-            if (hasPending) {
-              this.logger.log(`Skipping turbo-operator-registry refill for [${address}] - pending transaction exists`)
-            } else {
-              await this.tasks.requestRefillTurboCredits(address, requestAmount)
-            }
-          }
-
-          return [
-            {
-              stamp: job.data,
-              kind: 'turbo-operator-registry-credits',
-              amount: balance.toString(),
-              requestAmount: requestAmount?.toString() || undefined,
-              address,
-            },
-          ]
-        } catch (error) {
-          this.logger.error('Failed checking Turbo operator-registry credits', error.stack)
-          return []
-        }
-
-      case BalanceChecksQueue.JOB_CHECK_TURBO_RELAY_REWARDS:
-        try {
-          const { balance, requestAmount, address } = await this.turboCreditsChecks.checkRelayRewardsCredits()
-
-          if (requestAmount && address) {
-            const hasPending = await this.refills.hasPendingTurboRefill(address)
-            if (hasPending) {
-              this.logger.log(`Skipping turbo-relay-rewards refill for [${address}] - pending transaction exists`)
-            } else {
-              await this.tasks.requestRefillTurboCredits(address, requestAmount)
-            }
-          }
-
-          return [
-            {
-              stamp: job.data,
-              kind: 'turbo-relay-rewards-credits',
-              amount: balance.toString(),
-              requestAmount: requestAmount?.toString() || undefined,
-              address,
-            },
-          ]
-        } catch (error) {
-          this.logger.error('Failed checking Turbo relay-rewards credits', error.stack)
-          return []
-        }
-
-      case BalanceChecksQueue.JOB_CHECK_TURBO_STAKING_REWARDS:
-        try {
-          const { balance, requestAmount, address } = await this.turboCreditsChecks.checkStakingRewardsCredits()
-
-          if (requestAmount && address) {
-            const hasPending = await this.refills.hasPendingTurboRefill(address)
-            if (hasPending) {
-              this.logger.log(`Skipping turbo-staking-rewards refill for [${address}] - pending transaction exists`)
-            } else {
-              await this.tasks.requestRefillTurboCredits(address, requestAmount)
-            }
-          }
-
-          return [
-            {
-              stamp: job.data,
-              kind: 'turbo-staking-rewards-credits',
-              amount: balance.toString(),
-              requestAmount: requestAmount?.toString() || undefined,
-              address,
-            },
-          ]
-        } catch (error) {
-          this.logger.error('Failed checking Turbo staking-rewards credits', error.stack)
           return []
         }
 

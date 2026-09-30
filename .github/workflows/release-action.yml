@@ -73,10 +73,10 @@ jobs:
           curl -L https://releases.hashicorp.com/nomad/1.10.2/nomad_1.10.2_linux_amd64.zip -o nomad.zip
           unzip nomad.zip
 
+          # The jobspecs take commit_sha as an HCL2 variable with a pinned default, so pass the
+          # SHA that was just built rather than letting the default decide what deploys.
           if grep -q "stage" deploy-vars.json; then
-            sed -i "s/\[\[ .commit_sha \]\]/${GITHUB_SHA}/g" operations/operator-checks-stage.hcl
-            ./nomad job run operations/operator-checks-stage.hcl
+            ./nomad job run -var="commit_sha=${GITHUB_SHA}" operations/operator-checks-stage.hcl
           else
-            sed -i "s/\[\[ .commit_sha \]\]/${GITHUB_SHA}/g" operations/operator-checks-live.hcl
-            ./nomad job run operations/operator-checks-live.hcl
+            ./nomad job run -var="commit_sha=${GITHUB_SHA}" operations/operator-checks-live.hcl
           fi

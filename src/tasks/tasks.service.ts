@@ -32,61 +32,19 @@ export class TasksService implements OnApplicationBootstrap {
       opts: TasksService.jobOpts,
       children: [
         {
-          name: 'check-relay-rewards',
-          queueName: 'operator-checks-balance-checks-queue',
-          data: stamp,
-          opts: TasksService.jobOpts,
-        },
-        {
-          name: 'check-staking-rewards',
-          queueName: 'operator-checks-balance-checks-queue',
-          data: stamp,
-          opts: TasksService.jobOpts,
-        },
-        {
-          name: 'check-relay-registry',
-          queueName: 'operator-checks-balance-checks-queue',
-          data: stamp,
-          opts: TasksService.jobOpts,
-        },
-        {
-          name: 'check-bundler',
-          queueName: 'operator-checks-balance-checks-queue',
-          data: stamp,
-          opts: TasksService.jobOpts,
-        },
-        {
           name: 'check-hodler',
           queueName: 'operator-checks-balance-checks-queue',
           data: stamp,
           opts: TasksService.jobOpts,
         },
         {
+          name: 'check-hyperbeam-node',
+          queueName: 'operator-checks-balance-checks-queue',
+          data: stamp,
+          opts: TasksService.jobOpts,
+        },
+        {
           name: 'check-rewards-pool',
-          queueName: 'operator-checks-balance-checks-queue',
-          data: stamp,
-          opts: TasksService.jobOpts,
-        },
-        {
-          name: 'check-turbo-deployer',
-          queueName: 'operator-checks-balance-checks-queue',
-          data: stamp,
-          opts: TasksService.jobOpts,
-        },
-        {
-          name: 'check-turbo-operator-registry',
-          queueName: 'operator-checks-balance-checks-queue',
-          data: stamp,
-          opts: TasksService.jobOpts,
-        },
-        {
-          name: 'check-turbo-relay-rewards',
-          queueName: 'operator-checks-balance-checks-queue',
-          data: stamp,
-          opts: TasksService.jobOpts,
-        },
-        {
-          name: 'check-turbo-staking-rewards',
           queueName: 'operator-checks-balance-checks-queue',
           data: stamp,
           opts: TasksService.jobOpts,
@@ -136,9 +94,31 @@ export class TasksService implements OnApplicationBootstrap {
 
       this.logger.log('Queueing immediate balance checks')
       await this.queueCheckBalances({ delayJob: 0 })
+
+      this.logger.log('Queueing immediate publishing checks')
+      await this.queueCheckPublishing({ delayJob: 0 })
     } else {
       this.logger.log(`Not the leader, skipping queue cleanup check & ` + `skipping queueing immediate balance checks`)
     }
+  }
+
+  public static readonly JOB_CHECK_BALANCES = 'check-balances'
+  public static readonly JOB_CHECK_PUBLISHING = 'check-publishing'
+
+  /**
+   * Count only the jobs with THIS name.
+   *
+   * 🚨 Counting the whole queue is what broke balance checks on 2026-09-04. Both tasks share
+   * `operator-checks-tasks-queue`, and each re-queues itself with a `recheckDelay`, so one task's
+   * delayed job made the other's guard see a non-empty queue and skip forever. Balance checks
+   * stopped silently, and the live node wallet sat below its refill threshold for 4 days.
+   * The guard exists to stop a task stacking up duplicates of ITSELF, so it must filter by name.
+   */
+  private async countQueued(name: string, skipActiveCheck = false): Promise<number> {
+    const states: Promise<{ name: string }[]>[] = [this.tasksQueue.getWaiting(), this.tasksQueue.getDelayed()]
+    if (!skipActiveCheck) states.push(this.tasksQueue.getActive())
+    const jobs = (await Promise.all(states)).flat()
+    return jobs.filter(j => j?.name === name).length
   }
 
   public async queueCheckBalances(
@@ -153,12 +133,7 @@ export class TasksService implements OnApplicationBootstrap {
     this.logger.log(
       `Checking jobs in tasks queue before queueing new check balances job ` + `with delay: ${opts.delayJob}ms`,
     )
-    let numJobsInQueue = 0
-    numJobsInQueue += await this.tasksQueue.getWaitingCount()
-    numJobsInQueue += await this.tasksQueue.getDelayedCount()
-    if (!opts.skipActiveCheck) {
-      numJobsInQueue += await this.tasksQueue.getActiveCount()
-    }
+    const numJobsInQueue = await this.countQueued(TasksService.JOB_CHECK_BALANCES, opts.skipActiveCheck)
     if (numJobsInQueue > 0) {
       this.logger.warn(`There are ${numJobsInQueue} jobs in the tasks queue, ` + `not queueing new check balances job`)
       return
@@ -166,7 +141,32 @@ export class TasksService implements OnApplicationBootstrap {
 
     this.logger.log(`Queueing check balances job with delay: ${opts.delayJob}ms`)
     await this.tasksQueue.add(
-      'check-balances',
+      TasksService.JOB_CHECK_BALANCES,
+      {},
+      {
+        delay: opts.delayJob,
+        removeOnComplete: TasksService.removeOnComplete,
+        removeOnFail: TasksService.removeOnFail,
+      },
+    )
+  }
+
+  /**
+   * Publishing checks ride the same tasks queue and cadence as the balance checks, but do NOT go
+   * through the balance-checks FLOW: there is nothing to fan out and nothing to aggregate, and the
+   * flow's queue name is about balances.
+   */
+  public async queueCheckPublishing(
+    opts: { delayJob?: number, skipActiveCheck?: boolean } = { delayJob: this.recheckDelay },
+  ): Promise<void> {
+    const queued = await this.countQueued(TasksService.JOB_CHECK_PUBLISHING, opts.skipActiveCheck)
+    if (queued > 0) {
+      this.logger.warn(`There are ${queued} check publishing jobs already queued, not queueing another`)
+      return
+    }
+    this.logger.log(`Queueing check publishing job with delay: ${opts.delayJob}ms`)
+    await this.tasksQueue.add(
+      TasksService.JOB_CHECK_PUBLISHING,
       {},
       {
         delay: opts.delayJob,
@@ -203,16 +203,4 @@ export class TasksService implements OnApplicationBootstrap {
     )
   }
 
-  public async requestRefillTurboCredits(address: string, amount: BigNumber): Promise<void> {
-    this.logger.log(`Requesting [${amount.toFixed(6)}] Turbo Credits refill for [${address}]`)
-    await this.refillsQueue.add(
-      'refill-turbo-credits',
-      { turboAddress: address, creditAmount: amount.toString() },
-      {
-        delay: 0,
-        removeOnComplete: TasksService.removeOnComplete,
-        removeOnFail: TasksService.removeOnFail,
-      },
-    )
-  }
 }
