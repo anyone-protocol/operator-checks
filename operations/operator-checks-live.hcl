@@ -1,9 +1,6 @@
 variable "commit_sha" {
   type        = string
   description = "The git commit SHA to use for the runtime image tag"
-  // Pinned so the jobspec can be run by hand without passing -var. The release workflow no
-  // longer deploys on push, so nothing substitutes this for us any more; bump it deliberately
-  // when promoting a build, and override with -var=commit_sha=... for a one-off.
   default     = "a170203b2e347852c9cd23066ebe3517a6295cf8"
 }
 
@@ -50,25 +47,10 @@ job "operator-checks-live" {
         HODLER_OPERATOR_MAX_ETH="0.1"
         REWARDS_POOL_MIN_TOKEN=50000
         REWARDS_POOL_MAX_TOKEN=100000
-        # The hyperbeam node's own wallet. Since the nodes self-bundle it pays for EVERY
-        # assignment and message, and an empty one stops publishing SILENTLY - the scheduler
-        # discards the upload result, so slots keep advancing and become unpublishable.
-        # Measured burn 0.238 AR/day (live) on 2026-09-03, so min is ~10 days of warning and
-        # max ~30 days of runway. Address only: the node's key never leaves the node.
-        # ⚠️ QUOTED. Unquoted, HCL2 reads a bare word as a variable reference and Nomad
-        # preserves unresolvable ones as a literal "${...}" for runtime interpolation, so the
-        # service received the address wrapped in braces and every balance read 400d.
         HYPERBEAM_NODE_AR_ADDRESS="g2O4uQd12vfv0JJPbdz7Vi9eNcGKdZuFXBlBS96MrCQ"
-        # MIN/MAX are sized against the AR_SPENDER wallet, not just the node's runway. A refill
-        # sends (MAX - balance), and sendArTo compares balance < amount WITHOUT the tx fee, so a
-        # MAX close to the spender's balance can pass the check and still fail on chain. The
-        # spenders held ~11-16 AR after the 2026-09-03 top-up, so MAX=6 leaves room for about two
-        # refills before they need attention. At 0.238 AR/day a 3 AR top-up is ~12 days of runway of node runway.
-        # D25 publishing reliability. Lag is measured as the AGE of the newest published
-        # assignment, so 1800000 = 3 bundler flush cycles, not 3 slots.
         PUBLISHING_LAG_ALERT_MS="1800000"
         CHECKPOINT_MAX_AGE_MS="172800000"
-        # goldsky serves GraphQL but 404s on /<id>, so it is an INDEX only, never a data gateway.
+        # NB: goldsky serves GraphQL but 404s on /<id>, so it is an INDEX only, never a data gateway.
         PUBLIC_ARWEAVE_GATEWAYS="https://arweave.net"
         PUBLIC_ARWEAVE_INDEXES="https://arweave.net,https://arweave-search.goldsky.com"
         HYPERBEAM_NODE_MIN_AR=3
@@ -78,12 +60,10 @@ job "operator-checks-live" {
         CONSUL_HOST="${NOMAD_IP_http}"
         CONSUL_PORT="8500"
         CONSUL_SERVICE_NAME="operator-checks-live"
-        RECHECK_DELAY_MS="900000" # 15 minutes
+        RECHECK_DELAY_MS="900000"
       }
 
-      vault {
-        role = "any1-nomad-workloads-controller"
-      }
+      vault { role = "any1-nomad-workloads-controller" }
 
       template {
         data = <<-EOH
@@ -105,35 +85,39 @@ job "operator-checks-live" {
       template {
         data = <<-EOH
         TOKEN_CONTRACT_ADDRESS="{{ key "ator-token/ethereum/live/address" }}"
-        {{- range service "validator-live-mongo" }}
+        {{- range service "validator-live-mongo|any" }}
         MONGO_URI="mongodb://{{ .Address }}:{{ .Port }}/operator-checks-live-ethereum"
         {{- end }}
-        {{- range service "hyperbeam-live-node" }}
+        {{- range service "hyperbeam-live-node|any" }}
         HYPERBEAM_NODE_URL="http://{{ .Address }}:{{ .Port }}"
         {{- end }}
-        {{- range service "ario-any1-envoy" }}
+        {{- range service "ario-any1-envoy|any" }}
         ARWEAVE_GATEWAY_PROTOCOL="http"
         ARWEAVE_GATEWAY_HOST="{{ .Address }}"
         ARWEAVE_GATEWAY_PORT={{ .Port }}
         {{- end }}
-        {{- range service "operator-checks-live-redis-master" }}
+        {{- range service "operator-checks-live-redis-master|any" }}
         REDIS_MASTER_NAME="{{ .Name }}"
         {{- end }}
-        {{- range service "operator-checks-live-sentinel-1" }}
+        {{- range service "operator-checks-live-sentinel-1|any" }}
         REDIS_SENTINEL_1_HOST={{ .Address }}
         REDIS_SENTINEL_1_PORT={{ .Port }}
         {{- end }}
-        {{- range service "operator-checks-live-sentinel-2" }}
+        {{- range service "operator-checks-live-sentinel-2|any" }}
         REDIS_SENTINEL_2_HOST={{ .Address }}
         REDIS_SENTINEL_2_PORT={{ .Port }}
         {{- end }}
-        {{- range service "operator-checks-live-sentinel-3" }}
+        {{- range service "operator-checks-live-sentinel-3|any" }}
         REDIS_SENTINEL_3_HOST={{ .Address }}
         REDIS_SENTINEL_3_PORT={{ .Port }}
         {{- end }}
         EOH
         destination = "local/config.env"
         env         = true
+        wait {
+          min = "30s"
+          max = "90s"
+        }
       }
 
       resources {
