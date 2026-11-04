@@ -61,7 +61,6 @@
     "typescript": "^5.0.4"
   },
   "overrides": {
-    "@dha-team/arbundles": "1.0.3",
     "uuid": "$uuid",
     "multer": "^2.5.0"
   },
