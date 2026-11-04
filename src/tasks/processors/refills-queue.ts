@@ -8,10 +8,8 @@ import { RefillsService } from 'src/refills/refills.service'
 export class RefillsQueue extends WorkerHost {
   private readonly logger = new Logger(RefillsQueue.name)
 
-  public static readonly JOB_REFILL_ETH = 'refill-eth'
   public static readonly JOB_REFILL_TOKEN = 'refill-token'
   public static readonly JOB_REFILL_AR = 'refill-ar'
-  public static readonly JOB_REFILL_AO = 'refill-ao'
 
   constructor(private readonly refills: RefillsService) {
     super()
@@ -21,17 +19,6 @@ export class RefillsQueue extends WorkerHost {
     this.logger.debug(`Dequeueing ${job.name} [${job.id}]`)
 
     switch (job.name) {
-      case RefillsQueue.JOB_REFILL_ETH:
-        const { ethReceiver, ethAmount } = job.data
-        try {
-          const outcome = await this.refills.sendEthTo(ethReceiver, ethAmount)
-
-          return outcome
-        } catch (error) {
-          this.logger.error(`Failed to refill eth balance for ${ethReceiver} ${ethAmount}`, error.stack)
-          return false
-        }
-
       case RefillsQueue.JOB_REFILL_TOKEN:
         const { tokenReceiver, tokenAmount } = job.data
         try {
@@ -52,17 +39,6 @@ export class RefillsQueue extends WorkerHost {
           return outcome
         } catch (error) {
           this.logger.error(`Failed to refill token balance for ${arReceiver} ${arAmount}`, error.stack)
-          return false
-        }
-
-      case RefillsQueue.JOB_REFILL_AO:
-        const { uploaderAddress, uploaderAmount } = job.data
-        try {
-          const outcome = await this.refills.sendAoTo(uploaderAddress, uploaderAmount)
-
-          return outcome
-        } catch (error) {
-          this.logger.error(`Failed to refill token balance for ${uploaderAddress} ${uploaderAmount}`, error.stack)
           return false
         }
 

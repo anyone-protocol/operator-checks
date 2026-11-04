@@ -103,30 +103,6 @@ export class RefillsService {
     })
   }
 
-  async sendEthTo(address: string, amount: string): Promise<boolean> {
-    try {
-      if (this.isLive == 'true') {
-        const tx = await this.ethSpender.sendTransaction({
-          to: address,
-          value: ethers.parseEther(amount),
-        })
-        await tx.wait()
-        this.logger.log(
-          `EthSpender [${this.ethSpenderAddress}] finished sending [${amount}] $ETH to [${address}] with tx [${tx.hash}]`,
-        )
-      } else {
-        this.logger.warn(
-          `NOT LIVE, EthSpender [${this.ethSpenderAddress}] did NOT send [${amount}] $ETH to [${address}]`,
-        )
-      }
-
-      return true
-    } catch (error) {
-      this.logger.error(`[alarm=refill-failed-eth] Failed to send ${amount} $ETH to ${address}`, error.stack)
-      return false
-    }
-  }
-
   async sendTokensTo(address: string, amount: string): Promise<boolean> {
     try {
       if (this.isLive == 'true') {
@@ -320,17 +296,6 @@ export class RefillsService {
       return true
     } catch (error) {
       this.logger.error(`Failed to send [${amount}] $AR to [${address}]`, error.stack)
-      return false
-    }
-  }
-
-  async sendAoTo(address: string, amount: string): Promise<boolean> {
-    try {
-      this.logger.warn('sendAoTo - Not implemented yet')
-
-      return true
-    } catch (error) {
-      this.logger.error(`[alarm=refill-failed-ao] Failed to send [${amount}] $AO to [${address}]`, error.stack)
       return false
     }
   }
