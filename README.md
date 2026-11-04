@@ -20,7 +20,6 @@ funded without manual intervention, and to raise alarms when something looks wro
 - [Configuration reference](#configuration-reference)
 - [Deployment](#deployment)
 - [Alarms & observability](#alarms--observability)
-- [Roadmap / not-yet-wired](#roadmap--not-yet-wired)
 
 ---
 
@@ -38,10 +37,8 @@ check-balances  ─────────► children:                        
    │                         check-hyperbeam-node   ──┐         refill-token
    │ (re-queues itself       check-hodler             │ shortfall?
    │  every RECHECK_DELAY_MS check-rewards-pool       ─┘
-   │  ms)                    check-relay-registry     │
-   └─────────────────────►   check-relay-rewards      │
-                             check-staking-rewards    │
-                             ▼
+   │  ms)                    │
+   └─────────────────────►   ▼
                            review-balance-checks  ──► store all readings in MongoDB
 ```
 
@@ -93,9 +90,6 @@ vars listed in the [configuration reference](#configuration-reference).
 | `check-hyperbeam-node` | HyperBEAM node | Arweave | $AR | ✅ sends $AR |
 | `check-rewards-pool` | Rewards pool | EVM | $ANYONE (ERC-20) | ✅ sends $ANYONE |
 | `check-hodler` | Hodler operator | EVM | $ETH (gas) | ❌ monitor only by design — gas is user-funded |
-| `check-relay-registry` | Operator Registry controller | AO | $AO | ⚠️ monitor only — [see below](#ao-balance-checks) |
-| `check-relay-rewards` | Relay Rewards controller | AO | $AO | ⚠️ monitor only |
-| `check-staking-rewards` | Staking Rewards controller | AO | $AO | ⚠️ monitor only |
 
 The aggregating job `review-balance-checks` is not a check itself; it stores all of the
 above readings.
@@ -147,8 +141,6 @@ makes it safe to run the full pipeline against real RPCs without moving funds.
 |------------|-------|---------|-------|
 | `refill-ar` | $AR | `AR_SPENDER_KEY` (Arweave JWK) | Verifies the spender has enough $AR before sending |
 | `refill-token` | $ANYONE | `ETH_SPENDER_KEY` (EVM key) | ERC-20 `transfer` on `TOKEN_CONTRACT_ADDRESS` |
-| `refill-eth` | $ETH | `ETH_SPENDER_KEY` | Implemented but intentionally not enqueued — the hodler's gas is user-funded, so we only monitor it |
-| `refill-ao` | $AO | — | Stub only — [see roadmap](#roadmap--not-yet-wired) |
 
 See [refills.service.ts](src/refills/refills.service.ts) and
 [refills-queue.ts](src/tasks/processors/refills-queue.ts).
@@ -319,7 +311,7 @@ Operationally important conditions are logged with a machine-parseable
 
 - `balance-accumulation-*` — a monitored wallet is *above* its `MAX` threshold (funds may be
   stuck or thresholds misconfigured).
-- `refill-failed-eth` / `refill-failed-anyonetokens` / `refill-failed-ar` / `refill-failed-ao`
+- `refill-failed-anyonetokens` / `refill-failed-ar`
   — a refill transaction failed or the spender lacked sufficient balance.
 - `failed-job-<jobName>` — a BullMQ job failed.
 ✅ The hyperbeam node check added **no new alarm names and removed none**, so Grafana needs no
@@ -327,13 +319,3 @@ change. Accumulation on the node wallet reuses `balance-accumulation-ar-bundler`
 bundler since it began self-bundling), and depletion is a plain warn like every other check: it
 triggers a refill, and `refill-failed-ar` fires if that refill cannot happen. A node too empty to
 pay for a single upload is logged at error level without its own tag, for the same reason.
-
----
-
-## Roadmap / not-yet-wired
-
-The following are present in the code as intended behavior but not active today:
-
-- **$AO refills.** `RefillsService.sendAoTo` is a stub (logs "Not implemented yet"). The AO
-  balance checks themselves are also disabled in deployment because AO does not yet charge
-  $AO for gas/transaction fees; both will become relevant once it does.
