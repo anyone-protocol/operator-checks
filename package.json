@@ -63,10 +63,7 @@
   "overrides": {
     "@dha-team/arbundles": "1.0.3",
     "uuid": "$uuid",
-    "multer": "^2.5.0",
-    "@angular-devkit/core": {
-      "picomatch": "^4.0.4"
-    }
+    "multer": "^2.5.0"
   },
   "jest": {
     "moduleFileExtensions": [
