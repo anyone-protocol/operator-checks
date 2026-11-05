@@ -47,7 +47,7 @@ job "operator-checks-stage" {
         HODLER_OPERATOR_MAX_ETH="5"
         REWARDS_POOL_MIN_TOKEN=100000
         REWARDS_POOL_MAX_TOKEN=250000
-        HYPERBEAM_NODE_AR_ADDRESS="EbD49sHTtVM3POcTmJBHBvuVzVJjwY6_rW2y0WvWPK0"
+        HYPERBEAM_NODE_AR_ADDRESS="iXKiEfGEsuDiDQSVtjE1V0FRUFg4anFZFluqbDbrphc"
         PUBLISHING_LAG_ALERT_MS="1800000"
         CHECKPOINT_MAX_AGE_MS="172800000"
         # NB: goldsky serves GraphQL but 404s on /<id>, so it is an INDEX only, never a data gateway.
