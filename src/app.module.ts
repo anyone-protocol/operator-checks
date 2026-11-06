@@ -33,14 +33,18 @@ import { ClusterModule } from './cluster/cluster.module'
           REDIS_SENTINEL_2_PORT: number
           REDIS_SENTINEL_3_HOST: string
           REDIS_SENTINEL_3_PORT: number
+          REDIS_PASSWORD: string
         }>,
       ) => {
         const logger = new Logger(AppModule.name)
         const redisMode = config.get<string>('REDIS_MODE', 'standalone', { infer: true })
+        const password =
+          config.get<string>('REDIS_PASSWORD', { infer: true }) || undefined
 
         let connection: ConnectionOptions = {
           host: config.get<string>('REDIS_HOSTNAME', { infer: true }),
           port: config.get<number>('REDIS_PORT', { infer: true }),
+          password,
         }
 
         if (redisMode === 'sentinel') {
@@ -59,11 +63,13 @@ import { ClusterModule } from './cluster/cluster.module'
               port: config.get<number>('REDIS_SENTINEL_3_PORT', { infer: true }),
             },
           ]
-          connection = { sentinels, name }
+          connection = { sentinels, name, password, sentinelPassword: password }
         }
 
         logger.log(`Connecting to Redis with mode ${redisMode}`)
-        logger.log(`Connection: ${JSON.stringify(connection)}`)
+        const redact = (key: string, value: unknown) =>
+          /password/i.test(key) && value ? '[redacted]' : value
+        logger.log(`Connection: ${JSON.stringify(connection, redact)}`)
 
         return { connection }
       },
