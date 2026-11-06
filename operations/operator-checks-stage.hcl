@@ -85,10 +85,25 @@ job "operator-checks-stage" {
 
       template {
         data = <<-EOH
-        TOKEN_CONTRACT_ADDRESS="{{ key "ator-token/sepolia/stage/address" }}"
+        {{- with secret "kv/stage-protocol/operator-checks-stage" }}
+        {{- $user := .Data.data.MONGO_USER }}
+        {{- $pass := .Data.data.MONGO_PASS }}
         {{- range service "validator-stage-mongo|any" }}
-        MONGO_URI="mongodb://{{ .Address }}:{{ .Port }}/operator-checks-stage"
+        MONGO_URI="mongodb://{{ $user }}:{{ $pass }}@{{ .Address }}:{{ .Port }}/operator-checks-stage"
         {{- end }}
+        {{- end }}
+        EOH
+        destination = "secrets/mongo.env"
+        env         = true
+        wait {
+          min = "30s"
+          max = "90s"
+        }
+      }
+
+      template {
+        data = <<-EOH
+        TOKEN_CONTRACT_ADDRESS="{{ key "ator-token/sepolia/stage/address" }}"
         {{- range service "hyperbeam-stage-node|any" }}
         HYPERBEAM_NODE_URL="http://{{ .Address }}:{{ .Port }}"
         {{- end }}
