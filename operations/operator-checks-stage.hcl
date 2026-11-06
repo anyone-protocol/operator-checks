@@ -70,6 +70,7 @@ job "operator-checks-stage" {
         {{- with secret "kv/stage-protocol/operator-checks-stage" }}
         AR_SPENDER_KEY={{ base64Decode .Data.data.AR_SPENDER_KEY_BASE64 | toJSON }}
         CONSUL_TOKEN_CONTROLLER_CLUSTER="{{.Data.data.CONSUL_TOKEN_CONTROLLER_CLUSTER}}"
+        REDIS_PASSWORD="{{ .Data.data.REDIS_PASSWORD }}"
         ETH_SPENDER_KEY="{{ .Data.data.ETH_SPENDER_KEY }}"
         HODLER_OPERATOR_ADDRESS="{{ .Data.data.HODLER_OPERATOR_ADDRESS }}"
         JSON_RPC="{{.Data.data.JSON_RPC}}"
