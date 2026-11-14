@@ -1,7 +1,7 @@
 variable "commit_sha" {
   type        = string
   description = "The git commit SHA to use for the runtime image tag"
-  default     = "b4bc6b92161ad1e6a5d6ddd70ba1bf0dfa121262"
+  default     = "5b577b3b4936724d2fc31a7c2e387ef205cbe34c"
 }
 
 job "operator-checks-live" {
@@ -47,6 +47,7 @@ job "operator-checks-live" {
         HODLER_OPERATOR_MAX_ETH="0.1"
         REWARDS_POOL_MIN_TOKEN=50000
         REWARDS_POOL_MAX_TOKEN=100000
+        HYPERBEAM_NODE_AR_ADDRESS="UxERShg9fkBlXIxvfCUYu8I8wEm1C9sSGUt9Zh0i3zk"
         PUBLISHING_LAG_ALERT_MS="1800000"
         CHECKPOINT_MAX_AGE_MS="172800000"
         # NB: goldsky serves GraphQL but 404s on /<id>, so it is an INDEX only, never a data gateway.
@@ -69,6 +70,7 @@ job "operator-checks-live" {
         {{- with secret "kv/live-protocol/operator-checks-live" }}
         AR_SPENDER_KEY={{ base64Decode .Data.data.AR_SPENDER_KEY_BASE64 | toJSON }}
         CONSUL_TOKEN_CONTROLLER_CLUSTER="{{.Data.data.CONSUL_TOKEN_CONTROLLER_CLUSTER}}"
+        REDIS_PASSWORD="{{ .Data.data.REDIS_PASSWORD }}"
         ETH_SPENDER_KEY="{{ .Data.data.ETH_SPENDER_KEY }}"
         HODLER_OPERATOR_ADDRESS="{{ .Data.data.HODLER_OPERATOR_ADDRESS }}"
         JSON_RPC="{{.Data.data.JSON_RPC}}"
@@ -83,10 +85,25 @@ job "operator-checks-live" {
 
       template {
         data = <<-EOH
-        TOKEN_CONTRACT_ADDRESS="{{ key "ator-token/ethereum/live/address" }}"
+        {{- with secret "kv/live-protocol/operator-checks-live" }}
+        {{- $user := .Data.data.MONGO_USER }}
+        {{- $pass := .Data.data.MONGO_PASS }}
         {{- range service "validator-live-mongo|any" }}
-        MONGO_URI="mongodb://{{ .Address }}:{{ .Port }}/operator-checks-live-ethereum"
+        MONGO_URI="mongodb://{{ $user }}:{{ $pass }}@{{ .Address }}:{{ .Port }}/operator-checks-live-ethereum"
         {{- end }}
+        {{- end }}
+        EOH
+        destination = "secrets/mongo.env"
+        env         = true
+        wait {
+          min = "30s"
+          max = "90s"
+        }
+      }
+
+      template {
+        data = <<-EOH
+        TOKEN_CONTRACT_ADDRESS="{{ key "ator-token/ethereum/live/address" }}"
         {{- range service "hyperbeam-live-node|any" }}
         HYPERBEAM_NODE_URL="http://{{ .Address }}:{{ .Port }}"
         {{- end }}
