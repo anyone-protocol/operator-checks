@@ -1,7 +1,7 @@
 variable "commit_sha" {
   type        = string
   description = "The git commit SHA to use for the runtime image tag"
-  default     = "b4bc6b92161ad1e6a5d6ddd70ba1bf0dfa121262"
+  default     = "5b577b3b4936724d2fc31a7c2e387ef205cbe34c"
 }
 
 job "operator-checks-stage" {
