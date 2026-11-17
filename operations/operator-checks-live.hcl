@@ -44,7 +44,7 @@ job "operator-checks-live" {
         REDIS_MODE="sentinel"
         REDIS_MASTER_NAME="operator-checks-live-redis-master"
         HODLER_OPERATOR_MIN_ETH="0.01"
-        HODLER_OPERATOR_MAX_ETH="0.1"
+        HODLER_OPERATOR_MAX_ETH="1"
         REWARDS_POOL_MIN_TOKEN=50000
         REWARDS_POOL_MAX_TOKEN=100000
         HYPERBEAM_NODE_AR_ADDRESS="UxERShg9fkBlXIxvfCUYu8I8wEm1C9sSGUt9Zh0i3zk"
